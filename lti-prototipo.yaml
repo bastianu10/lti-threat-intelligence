@@ -1,0 +1,1315 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Prototipo LTI (Camino B) - componentes de bajo costo. Los componentes de produccion (Network Firewall, EKS, MSK, Aurora, NAT, Neptune, Redshift) se documentan y no se crean.
+
+Parameters:
+  EmailPresupuesto:
+    Type: String
+    Description: Correo que recibe las alertas de presupuesto
+  NombreProyecto:
+    Type: String
+    Default: lti
+    AllowedPattern: "[a-z0-9-]{1,12}"
+  ClaveRDS:
+    Type: String
+    NoEcho: true
+    Description: Clave maestra de la base RDS. Cambiarla en el deploy con --parameter-overrides ClaveRDS=...
+    Default: "CambiaEstaClave123"
+    MinLength: 8
+  ClaveUsuarios:
+    Type: String
+    NoEcho: true
+    Description: Clave de los usuarios de la base (u_ingesta, u_cruce...). La misma que se uso en rds_crear_esquema.py --clave-usuarios.
+    MinLength: 8
+  VersionNucleo:
+    Type: String
+    Default: v4
+    AllowedPattern: "[a-z0-9.-]{1,20}"
+    Description: Version del paquete lti-nucleo-<version>.zip en s3://<bucket curada>/artefactos/. Cambiala cada vez que subas un paquete nuevo.
+  ArnSlack:
+    Type: String
+    Default: arn:aws:lambda:us-east-2:208805233219:function:Iti-SlackConection1
+    AllowedPattern: "arn:aws:lambda:[a-z0-9-]+:[0-9]{12}:function:[A-Za-z0-9_-]+"
+    Description: Lambda de Slack que ya esta en AWS. Recibe {"title","body"} y publica en el canal.
+  EmailAdminPanel:
+    Type: String
+    AllowedPattern: "[^@ ]+@[^@ ]+\\.[^@ ]+"
+    Description: Correo de la primera persona administradora del panel. Cognito le envia ahi su contrasena temporal.
+  ClaveNeo4j:
+    Type: String
+    NoEcho: true
+    AllowedPattern: "[A-Za-z0-9]{8,64}"
+    Description: Contrasena del usuario neo4j de la CMDB. Solo letras y numeros, minimo 8.
+  ImagenLinuxArm:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-arm64
+    Description: Imagen de Amazon Linux 2023 (arm64). No hace falta cambiarla.
+  IPPermitida:
+    Type: String
+    Description: Tu IP publica actual, en formato CIDR (ej. 187.190.12.34/32). Solo esa IP podra conectarse a RDS.
+    AllowedPattern: "(\\d{1,3}\\.){3}\\d{1,3}/32"
+
+Resources:
+  # --- Red privada minima para RDS (sin NAT Gateway: nada en esta VPC necesita salir a internet) ---
+  VpcRDS:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.50.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+
+  SubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VpcRDS
+      CidrBlock: 10.50.1.0/24
+      AvailabilityZone: !Select [0, !GetAZs '']
+      MapPublicIpOnLaunch: true
+
+  SubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VpcRDS
+      CidrBlock: 10.50.2.0/24
+      AvailabilityZone: !Select [1, !GetAZs '']
+      MapPublicIpOnLaunch: true
+
+  TablaRutas:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VpcRDS
+
+  AsociarRutaA:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref SubnetA
+      RouteTableId: !Ref TablaRutas
+
+  AsociarRutaB:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref SubnetB
+      RouteTableId: !Ref TablaRutas
+
+  IGW:
+    Type: AWS::EC2::InternetGateway
+
+  AdjuntarIGW:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VpcRDS
+      InternetGatewayId: !Ref IGW
+
+  RutaPublica:
+    Type: AWS::EC2::Route
+    DependsOn: AdjuntarIGW
+    Properties:
+      RouteTableId: !Ref TablaRutas
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref IGW
+
+  # Endpoint de S3 (gratis): permite que las Lambdas en la VPC lean/escriban S3
+  # sin necesitar NAT Gateway ni salida a internet.
+  EndpointS3:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcId: !Ref VpcRDS
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.s3"
+      RouteTableIds:
+        - !Ref TablaRutas
+      VpcEndpointType: Gateway
+
+  GrupoSubredesRDS:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Subredes privadas para RDS
+      SubnetIds:
+        - !Ref SubnetA
+        - !Ref SubnetB
+
+  SgRDS:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Solo acepta Postgres desde las Lambdas de normalizacion y cruce
+      VpcId: !Ref VpcRDS
+
+  SgLambdaRDS:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Lambdas que necesitan hablar con RDS
+      VpcId: !Ref VpcRDS
+
+  ReglaRDSDesdeLambda:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref SgRDS
+      IpProtocol: tcp
+      FromPort: 5432
+      ToPort: 5432
+      SourceSecurityGroupId: !Ref SgLambdaRDS
+
+  ReglaRDSDesdeMiIP:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref SgRDS
+      IpProtocol: tcp
+      FromPort: 5432
+      ToPort: 5432
+      CidrIp: !Ref IPPermitida
+
+  ReglaRDSDesdeCMDB:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref SgRDS
+      IpProtocol: tcp
+      FromPort: 5432
+      ToPort: 5432
+      SourceSecurityGroupId: !Ref SgCMDB
+
+  BaseDatosRDS:
+    Type: AWS::RDS::DBInstance
+    DeletionPolicy: Delete
+    Properties:
+      Tags:
+        - Key: activo
+          Value: aurora-lti
+      DBInstanceIdentifier: !Sub "${NombreProyecto}-rds"
+      Engine: postgres
+      DBInstanceClass: db.t4g.micro
+      AllocatedStorage: "20"
+      StorageType: gp2
+      MasterUsername: lti_app
+      MasterUserPassword: !Ref ClaveRDS
+      DBName: lti
+      DBSubnetGroupName: !Ref GrupoSubredesRDS
+      VPCSecurityGroups:
+        - !Ref SgRDS
+      PubliclyAccessible: true
+      MultiAZ: false
+      BackupRetentionPeriod: 1
+      DeletionProtection: false
+
+  BucketRaw:
+    Type: AWS::S3::Bucket
+    Properties:
+      Tags:
+        - Key: activo
+          Value: s3-raw-lti
+      BucketName: !Sub "${NombreProyecto}-raw-${AWS::AccountId}"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      LifecycleConfiguration:
+        Rules:
+          - Id: expirar-raw-90-dias
+            Status: Enabled
+            ExpirationInDays: 90
+
+  BucketCurada:
+    Type: AWS::S3::Bucket
+    Properties:
+      Tags:
+        - Key: activo
+          Value: s3-curada-lti
+      BucketName: !Sub "${NombreProyecto}-curada-${AWS::AccountId}"
+      VersioningConfiguration:
+        Status: Enabled
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+
+  SecretoNVD:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub "${NombreProyecto}/nvd"
+      Description: Clave gratuita de la API de NVD. Reemplazar PENDIENTE con la clave real.
+      SecretString: '{"api_key":"PENDIENTE"}'
+
+  SecretoSlack:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub "${NombreProyecto}/slack"
+      Description: URL del webhook de Slack del canal de alertas. Reemplazar PENDIENTE.
+      SecretString: '{"webhook_url":"PENDIENTE"}'
+
+  RolConector:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: minimo-privilegio
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: s3:PutObject
+                Resource: !Sub "${BucketRaw.Arn}/raw/*"
+              - Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource: !Ref SecretoNVD
+
+  FuncionConector:
+    Type: AWS::Lambda::Function
+    Properties:
+      Tags:
+        - Key: activo
+          Value: lti-conector-api
+      FunctionName: !Sub "${NombreProyecto}-conector-nvd-kev"
+      Runtime: python3.12
+      Handler: index.handler
+      Role: !GetAtt RolConector.Arn
+      Timeout: 300
+      MemorySize: 256
+      Environment:
+        Variables:
+          RAW_BUCKET: !Ref BucketRaw
+          NVD_SECRET: !Ref SecretoNVD
+      Code:
+        ZipFile: |
+          import json, os, time, datetime, urllib.request, urllib.parse, boto3
+          s3 = boto3.client("s3")
+          sm = boto3.client("secretsmanager")
+          BUCKET = os.environ["RAW_BUCKET"]
+          SECRETO = os.environ["NVD_SECRET"]
+          KEV_URL = "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json"
+          def get(url, headers=None):
+              for intento in range(4):
+                  try:
+                      req = urllib.request.Request(url, headers=headers or {"User-Agent": "lti-prototipo"})
+                      with urllib.request.urlopen(req, timeout=60) as r:
+                          return r.read()
+                  except urllib.error.HTTPError as e:
+                      if e.code in (403, 429) and intento < 3:
+                          time.sleep(8 * (intento + 1)); continue
+                      raise
+          def handler(event, context):
+              ahora = datetime.datetime.now(datetime.timezone.utc)
+              desde = ahora - datetime.timedelta(hours=26)
+              clave = json.loads(sm.get_secret_value(SecretId=SECRETO)["SecretString"]).get("api_key", "")
+              hdr = {"User-Agent": "lti-prototipo"}
+              if clave and clave != "PENDIENTE":
+                  hdr["apiKey"] = clave
+              fmt = "%Y-%m-%dT%H:%M:%S.000+00:00"
+              cves, inicio, total = [], 0, None
+              while total is None or inicio < total:
+                  q = urllib.parse.urlencode({"lastModStartDate": desde.strftime(fmt),
+                                              "lastModEndDate": ahora.strftime(fmt),
+                                              "startIndex": inicio, "resultsPerPage": 2000})
+                  datos = json.loads(get("https://services.nvd.nist.gov/rest/json/cves/2.0?" + q, hdr))
+                  total = datos.get("totalResults", 0)
+                  cves += [v["cve"] for v in datos.get("vulnerabilities", [])]
+                  inicio += 2000
+                  time.sleep(1 if clave else 6)
+              tag = ahora.strftime("%Y/%m/%d/%H%M%S")
+              s3.put_object(Bucket=BUCKET, Key=f"raw/nvd/{tag}.json",
+                            Body=json.dumps({"descargado": ahora.isoformat(), "cves": cves}).encode(),
+                            ContentType="application/json")
+              kev = get(KEV_URL)
+              s3.put_object(Bucket=BUCKET, Key=f"raw/kev/{tag}.json", Body=kev, ContentType="application/json")
+              return {"cves_nvd": len(cves), "kev_bytes": len(kev), "raw": tag}
+
+  FuncionEPSS:
+    Type: AWS::Lambda::Function
+    Properties:
+      Tags:
+        - Key: activo
+          Value: lti-conector-api
+      FunctionName: !Sub "${NombreProyecto}-conector-epss"
+      Runtime: python3.12
+      Handler: index.handler
+      Role: !GetAtt RolConector.Arn
+      Timeout: 240
+      MemorySize: 512
+      Environment:
+        Variables:
+          RAW_BUCKET: !Ref BucketRaw
+      Code:
+        ZipFile: |
+          import gzip, json, csv, os, datetime, urllib.request, boto3
+          s3 = boto3.client("s3")
+          BUCKET = os.environ["RAW_BUCKET"]
+          URL = "https://epss.cyentia.com/epss_scores-current.csv.gz"
+          def handler(event, context):
+              req = urllib.request.Request(URL, headers={"User-Agent": "lti-prototipo"})
+              with urllib.request.urlopen(req, timeout=120) as r:
+                  crudo = r.read()
+              texto = gzip.decompress(crudo).decode("utf-8")
+              del crudo
+              lineas = (l for l in texto.splitlines() if l and not l.startswith("#"))
+              lector = csv.DictReader(lineas)
+              partes, total = [], 0
+              for f in lector:
+                  partes.append(f'{{"cve":"{f["cve"]}","epss":{float(f["epss"])},"percentil":{float(f["percentile"])}}}')
+                  total += 1
+              cuerpo = '{"descargado":"%s","puntajes":[%s]}' % (
+                  datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                  ",".join(partes),
+              )
+              ahora = datetime.datetime.now(datetime.timezone.utc)
+              tag = ahora.strftime("%Y/%m/%d/%H%M%S")
+              s3.put_object(Bucket=BUCKET, Key=f"raw/epss/{tag}.json", Body=cuerpo.encode(), ContentType="application/json")
+              return {"cves_epss": total, "raw": tag}
+
+  FuncionOSV:
+    Type: AWS::Lambda::Function
+    Properties:
+      Tags:
+        - Key: activo
+          Value: lti-conector-api
+      FunctionName: !Sub "${NombreProyecto}-conector-osv-ghsa"
+      Runtime: python3.12
+      Handler: index.handler
+      Role: !GetAtt RolConector.Arn
+      Timeout: 180
+      MemorySize: 256
+      Environment:
+        Variables:
+          RAW_BUCKET: !Ref BucketRaw
+      Code:
+        ZipFile: |
+          import json, os, re, datetime, urllib.request, boto3
+          s3 = boto3.client("s3")
+          BUCKET = os.environ["RAW_BUCKET"]
+          BASE = "https://api.github.com/advisories"
+          def sig_pagina(encabezado):
+              if not encabezado:
+                  return None
+              for parte in encabezado.split(","):
+                  if 'rel="next"' in parte:
+                      return parte[parte.find("<") + 1 : parte.find(">")]
+              return None
+          def handler(event, context):
+              ahora = datetime.datetime.now(datetime.timezone.utc)
+              desde = (ahora - datetime.timedelta(hours=26)).strftime("%Y-%m-%dT%H:%M:%S")
+              url = f"{BASE}?per_page=100&type=reviewed&updated=%3E%3D{desde}"
+              hdr = {"User-Agent": "lti-prototipo", "Accept": "application/vnd.github+json"}
+              avisos, paginas = [], 0
+              while url and paginas < 10:
+                  req = urllib.request.Request(url, headers=hdr)
+                  with urllib.request.urlopen(req, timeout=30) as r:
+                      avisos += json.loads(r.read())
+                      url = sig_pagina(r.headers.get("Link"))
+                  paginas += 1
+              ghsa = [a for a in avisos if a.get("type") != "malware"]
+              tag = ahora.strftime("%Y/%m/%d/%H%M%S")
+              s3.put_object(
+                  Bucket=BUCKET,
+                  Key=f"raw/osv/{tag}.json",
+                  Body=json.dumps({"descargado": ahora.isoformat(), "avisos": ghsa}).encode(),
+                  ContentType="application/json",
+              )
+              return {"avisos_osv": len(ghsa), "paginas": paginas, "raw": tag}
+
+  # --- Nucleo en AWS: carga y cruce dentro de la red de la base, orquestados por Step Functions ---
+  # --- Normalizacion: S3 Raw -> S3 Curada (no toca la base de datos) ---
+  RolNormalizacionCurada:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: raw-a-curada
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: s3:ListBucket
+                Resource: !GetAtt BucketRaw.Arn
+              - Effect: Allow
+                Action: s3:GetObject
+                Resource: !Sub "${BucketRaw.Arn}/raw/*"
+              - Effect: Allow
+                Action: s3:PutObject
+                Resource: !Sub "${BucketCurada.Arn}/curada-v3/*"
+
+  FuncionNormalizacionCurada:
+    Type: AWS::Lambda::Function
+    Properties:
+      Tags:
+        - Key: activo
+          Value: lti-normalizacion
+      FunctionName: !Sub "${NombreProyecto}-normalizacion-curada"
+      Runtime: python3.12
+      Handler: lambda_handlers.normalizacion
+      Role: !GetAtt RolNormalizacionCurada.Arn
+      Timeout: 300
+      MemorySize: 1024
+      Code:
+        S3Bucket: !Ref BucketCurada
+        S3Key: !Sub "artefactos/lti-nucleo-${VersionNucleo}.zip"
+      Environment:
+        Variables:
+          RAW_BUCKET: !Ref BucketRaw
+          CURADA_BUCKET: !Ref BucketCurada
+
+  RolCarga:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
+      Policies:
+        - PolicyName: lectura-curada
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: s3:ListBucket
+                Resource: !GetAtt BucketCurada.Arn
+              - Effect: Allow
+                Action: s3:GetObject
+                Resource: !Sub "${BucketCurada.Arn}/curada-v3/*"
+
+  RolCruceRDS:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
+
+  FuncionCarga:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${NombreProyecto}-carga-vulnerabilidades"
+      Runtime: python3.12
+      Handler: lambda_handlers.carga_vulnerabilidades
+      Role: !GetAtt RolCarga.Arn
+      Timeout: 900
+      MemorySize: 1024
+      Code:
+        S3Bucket: !Ref BucketCurada
+        S3Key: !Sub "artefactos/lti-nucleo-${VersionNucleo}.zip"
+      VpcConfig:
+        SubnetIds:
+          - !Ref SubnetA
+          - !Ref SubnetB
+        SecurityGroupIds:
+          - !Ref SgLambdaRDS
+      Environment:
+        Variables:
+          DB_HOST: !GetAtt BaseDatosRDS.Endpoint.Address
+          DB_PASSWORD: !Ref ClaveUsuarios
+          BUCKET_CURADA: !Ref BucketCurada
+
+  FuncionCruceRDS:
+    Type: AWS::Lambda::Function
+    Properties:
+      Tags:
+        - Key: activo
+          Value: lti-cruce
+      FunctionName: !Sub "${NombreProyecto}-cruce-rds"
+      Runtime: python3.12
+      Handler: lambda_handlers.cruce
+      Role: !GetAtt RolCruceRDS.Arn
+      Timeout: 300
+      MemorySize: 512
+      Code:
+        S3Bucket: !Ref BucketCurada
+        S3Key: !Sub "artefactos/lti-nucleo-${VersionNucleo}.zip"
+      VpcConfig:
+        SubnetIds:
+          - !Ref SubnetA
+          - !Ref SubnetB
+        SecurityGroupIds:
+          - !Ref SgLambdaRDS
+      Environment:
+        Variables:
+          DB_HOST: !GetAtt BaseDatosRDS.Endpoint.Address
+          DB_PASSWORD: !Ref ClaveUsuarios
+
+  RolFlujo:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: states.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: invocar-lambdas
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource:
+                  - !GetAtt FuncionConector.Arn
+                  - !GetAtt FuncionEPSS.Arn
+                  - !GetAtt FuncionOSV.Arn
+                  - !GetAtt FuncionNormalizacionCurada.Arn
+                  - !GetAtt FuncionCarga.Arn
+                  - !GetAtt FuncionCruceRDS.Arn
+                  - !GetAtt FuncionApiDatos.Arn
+                  - !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${NombreProyecto}-api-sistema"
+                  - !Ref ArnSlack
+
+  FlujoDiario:
+    Type: AWS::StepFunctions::StateMachine
+    Properties:
+      StateMachineName: !Sub "${NombreProyecto}-flujo-diario"
+      RoleArn: !GetAtt RolFlujo.Arn
+      DefinitionString: !Sub
+        - |
+          {
+            "Comment": "Lyft Threat Intelligence: ingesta de las fuentes que pida la entrada (por defecto todas), carga, cruce y foto diaria de metricas",
+            "StartAt": "Ingesta",
+            "States": {
+              "Ingesta": {
+                "Type": "Parallel",
+                "ResultPath": null,
+                "Next": "Normalizacion",
+                "Branches": [
+                  {"StartAt": "SiNvdKev", "States": {
+                    "SiNvdKev": {"Type": "Choice", "Choices": [{"And": [{"Variable": "$.nvd", "IsPresent": true}, {"Variable": "$.nvd", "BooleanEquals": false}], "Next": "NvdKevOmitida"}], "Default": "NvdKev"},
+                    "NvdKev": {"Type": "Task", "Resource": "arn:aws:states:::lambda:invoke",
+                      "Parameters": {"FunctionName": "${ArnNvd}", "Payload": {}}, "TimeoutSeconds": 360,
+                      "Retry": [{"ErrorEquals": ["States.ALL"], "IntervalSeconds": 30, "MaxAttempts": 1}],
+                      "Catch": [{"ErrorEquals": ["States.ALL"], "Next": "NvdKevOmitida"}], "End": true},
+                    "NvdKevOmitida": {"Type": "Pass", "End": true}}},
+                  {"StartAt": "SiEpss", "States": {
+                    "SiEpss": {"Type": "Choice", "Choices": [{"And": [{"Variable": "$.epss", "IsPresent": true}, {"Variable": "$.epss", "BooleanEquals": false}], "Next": "EpssOmitida"}], "Default": "Epss"},
+                    "Epss": {"Type": "Task", "Resource": "arn:aws:states:::lambda:invoke",
+                      "Parameters": {"FunctionName": "${ArnEpss}", "Payload": {}}, "TimeoutSeconds": 360,
+                      "Retry": [{"ErrorEquals": ["States.ALL"], "IntervalSeconds": 30, "MaxAttempts": 1}],
+                      "Catch": [{"ErrorEquals": ["States.ALL"], "Next": "EpssOmitida"}], "End": true},
+                    "EpssOmitida": {"Type": "Pass", "End": true}}},
+                  {"StartAt": "SiOsvGhsa", "States": {
+                    "SiOsvGhsa": {"Type": "Choice", "Choices": [{"And": [{"Variable": "$.osv", "IsPresent": true}, {"Variable": "$.osv", "BooleanEquals": false}], "Next": "OsvGhsaOmitida"}], "Default": "OsvGhsa"},
+                    "OsvGhsa": {"Type": "Task", "Resource": "arn:aws:states:::lambda:invoke",
+                      "Parameters": {"FunctionName": "${ArnOsv}", "Payload": {}}, "TimeoutSeconds": 360,
+                      "Retry": [{"ErrorEquals": ["States.ALL"], "IntervalSeconds": 30, "MaxAttempts": 1}],
+                      "Catch": [{"ErrorEquals": ["States.ALL"], "Next": "OsvGhsaOmitida"}], "End": true},
+                    "OsvGhsaOmitida": {"Type": "Pass", "End": true}}}
+                ]
+              },
+              "Normalizacion": {"Type": "Task", "Resource": "arn:aws:states:::lambda:invoke",
+                "Parameters": {"FunctionName": "${ArnNorm}", "Payload": {}}, "TimeoutSeconds": 330,
+                "Retry": [{"ErrorEquals": ["States.ALL"], "IntervalSeconds": 30, "MaxAttempts": 1}],
+                "ResultPath": null, "Next": "Carga"},
+              "Carga": {"Type": "Task", "Resource": "arn:aws:states:::lambda:invoke",
+                "Parameters": {"FunctionName": "${ArnCarga}", "Payload": {}}, "TimeoutSeconds": 900,
+                "Retry": [{"ErrorEquals": ["States.ALL"], "IntervalSeconds": 30, "MaxAttempts": 1}],
+                "ResultPath": null, "Next": "Cruce"},
+              "Cruce": {"Type": "Task", "Resource": "arn:aws:states:::lambda:invoke",
+                "Parameters": {"FunctionName": "${ArnCruce}", "Payload": {}}, "TimeoutSeconds": 300,
+                "Retry": [{"ErrorEquals": ["States.ALL"], "IntervalSeconds": 30, "MaxAttempts": 1}],
+                "ResultPath": null, "Next": "Metricas"},
+              "Metricas": {"Type": "Task", "Resource": "arn:aws:states:::lambda:invoke",
+                "Parameters": {"FunctionName": "${ArnApiDatos}", "Payload": {"accion": "snapshot"}}, "TimeoutSeconds": 60,
+                "Retry": [{"ErrorEquals": ["States.ALL"], "IntervalSeconds": 20, "MaxAttempts": 1}],
+                "ResultPath": null, "Catch": [{"ErrorEquals": ["States.ALL"], "ResultPath": null, "Next": "LeerAlertas"}],
+                "Next": "LeerAlertas"},
+              "LeerAlertas": {"Type": "Task", "Resource": "arn:aws:states:::lambda:invoke",
+                "Parameters": {"FunctionName": "${ArnApiSistema}", "Payload": {"accion": "alertas"}}, "TimeoutSeconds": 30,
+                "ResultSelector": {"alertas.$": "$.Payload"}, "ResultPath": "$.cfg",
+                "Catch": [{"ErrorEquals": ["States.ALL"], "Next": "SinAlertas"}], "Next": "ArmarAlerta"},
+              "ArmarAlerta": {"Type": "Task", "Resource": "arn:aws:states:::lambda:invoke",
+                "Parameters": {"FunctionName": "${ArnApiDatos}", "Payload": {"accion": "alerta", "alertas.$": "$.cfg.alertas"}}, "TimeoutSeconds": 60,
+                "ResultSelector": {"alerta.$": "$.Payload"}, "ResultPath": "$.res",
+                "Catch": [{"ErrorEquals": ["States.ALL"], "Next": "SinAlertas"}], "Next": "HayAlerta"},
+              "HayAlerta": {"Type": "Choice", "Choices": [{"Variable": "$.res.alerta.enviar", "BooleanEquals": true, "Next": "EnviarSlack"}], "Default": "SinAlertas"},
+              "EnviarSlack": {"Type": "Task", "Resource": "arn:aws:states:::lambda:invoke",
+                "Parameters": {"FunctionName": "${ArnSlack}", "Payload": {"title.$": "$.res.alerta.title", "body.$": "$.res.alerta.body"}}, "TimeoutSeconds": 30,
+                "ResultSelector": {"slack.$": "$.Payload"}, "ResultPath": "$.envio",
+                "Catch": [{"ErrorEquals": ["States.ALL"], "Next": "SinAlertas"}], "Next": "SlackEntregado"},
+              "SlackEntregado": {"Type": "Choice", "Choices": [{"Variable": "$.envio.slack.ok", "BooleanEquals": true, "Next": "MarcarEnviados"}], "Default": "SinAlertas"},
+              "MarcarEnviados": {"Type": "Task", "Resource": "arn:aws:states:::lambda:invoke",
+                "Parameters": {"FunctionName": "${ArnApiDatos}", "Payload": {"accion": "marcar", "ids.$": "$.res.alerta.ids"}}, "TimeoutSeconds": 60,
+                "ResultPath": null, "Catch": [{"ErrorEquals": ["States.ALL"], "Next": "SinAlertas"}], "End": true},
+              "SinAlertas": {"Type": "Succeed"}
+            }
+          }
+        - ArnNvd: !GetAtt FuncionConector.Arn
+          ArnEpss: !GetAtt FuncionEPSS.Arn
+          ArnOsv: !GetAtt FuncionOSV.Arn
+          ArnNorm: !GetAtt FuncionNormalizacionCurada.Arn
+          ArnCarga: !GetAtt FuncionCarga.Arn
+          ArnCruce: !GetAtt FuncionCruceRDS.Arn
+          ArnApiDatos: !GetAtt FuncionApiDatos.Arn
+          ArnApiSistema: !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${NombreProyecto}-api-sistema"
+          ArnSlack: !Ref ArnSlack
+
+  RolEventosFlujo:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: iniciar-flujo
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: states:StartExecution
+                Resource: !Ref FlujoDiario
+
+  ReglaFuenteNVD:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub "${NombreProyecto}-fuente-nvd"
+      Description: "Fuente nvd: la frecuencia se cambia desde el panel (Configuracion)"
+      ScheduleExpression: cron(0 12 * * ? *)
+      State: ENABLED
+      Targets:
+        - Arn: !Ref FlujoDiario
+          Id: flujo
+          RoleArn: !GetAtt RolEventosFlujo.Arn
+          Input: '{"nvd":true,"epss":false,"osv":false}'
+
+  ReglaFuenteEPSS:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub "${NombreProyecto}-fuente-epss"
+      Description: "Fuente epss: la frecuencia se cambia desde el panel (Configuracion)"
+      ScheduleExpression: cron(15 12 * * ? *)
+      State: ENABLED
+      Targets:
+        - Arn: !Ref FlujoDiario
+          Id: flujo
+          RoleArn: !GetAtt RolEventosFlujo.Arn
+          Input: '{"nvd":false,"epss":true,"osv":false}'
+
+  ReglaFuenteOSV:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub "${NombreProyecto}-fuente-osv"
+      Description: "Fuente osv: la frecuencia se cambia desde el panel (Configuracion)"
+      ScheduleExpression: cron(30 12 * * ? *)
+      State: ENABLED
+      Targets:
+        - Arn: !Ref FlujoDiario
+          Id: flujo
+          RoleArn: !GetAtt RolEventosFlujo.Arn
+          Input: '{"nvd":false,"epss":false,"osv":true}'
+
+  # --- CMDB en AWS: Neo4j + Cartography en una instancia, con rol de SOLO LECTURA (sin llaves guardadas) ---
+  RolCMDB:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/SecurityAudit
+        - arn:aws:iam::aws:policy/job-function/ViewOnlyAccess
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Policies:
+        - PolicyName: leer-etiquetas
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: tag:GetResources
+                Resource: "*"
+        - PolicyName: leer-archivos-cmdb
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: s3:GetObject
+                Resource: !Sub "${BucketCurada.Arn}/artefactos/cmdb/*"
+
+  PerfilCMDB:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref RolCMDB
+
+  SgCMDB:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Neo4j (navegador 7474 y bolt 7687) solo desde la IP del equipo
+      VpcId: !Ref VpcRDS
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 7474
+          ToPort: 7474
+          CidrIp: !Ref IPPermitida
+        - IpProtocol: tcp
+          FromPort: 7687
+          ToPort: 7687
+          CidrIp: !Ref IPPermitida
+
+  InstanciaCMDB:
+    Type: AWS::EC2::Instance
+    DependsOn: RutaPublica
+    Properties:
+      ImageId: !Ref ImagenLinuxArm
+      InstanceType: t4g.small
+      IamInstanceProfile: !Ref PerfilCMDB
+      MetadataOptions:
+        HttpTokens: required
+      NetworkInterfaces:
+        - DeviceIndex: "0"
+          AssociatePublicIpAddress: true
+          SubnetId: !Ref SubnetA
+          GroupSet:
+            - !Ref SgCMDB
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeSize: 20
+            VolumeType: gp3
+            Encrypted: true
+      Tags:
+        - Key: Name
+          Value: !Sub "${NombreProyecto}-cmdb"
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          # Arranque de la instancia de la CMDB (Neo4j + Cartography). Se ejecuta una sola vez, en el primer inicio.
+          exec > >(tee -a /var/log/cmdb-bootstrap.log) 2>&1
+          set -u
+          BUCKET=${BucketCurada}
+          REGION=${AWS::Region}
+          NEO4J_PWD=${ClaveNeo4j}
+
+          # 1) Memoria de respaldo: la instancia tiene 2 GB y conviven Neo4j y Cartography
+          dd if=/dev/zero of=/swapfile bs=1M count=2048
+          chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile
+
+          # 2) Paquetes. Cartography exige Python 3.11 o mas.
+          dnf install -y docker python3.11 python3.11-pip python3.11-devel gcc
+          systemctl enable --now docker
+
+          # 3) Neo4j Community en Docker, con la memoria acotada para una instancia chica
+          mkdir -p /opt/neo4j/data /opt/cmdb
+          docker run -d --name neo4j --restart unless-stopped -p 7474:7474 -p 7687:7687 \
+            -v /opt/neo4j/data:/data \
+            -e NEO4J_AUTH=neo4j/$NEO4J_PWD \
+            -e NEO4J_server_memory_heap_initial__size=512m \
+            -e NEO4J_server_memory_heap_max__size=512m \
+            -e NEO4J_server_memory_pagecache_size=256m \
+            neo4j:5-community
+
+          # 4) Cartography y el driver de Neo4j, en un entorno propio
+          python3.11 -m venv /opt/cmdb/venv
+          /opt/cmdb/venv/bin/pip install --quiet cartography
+
+          # 5) Configuracion (solo root la puede leer)
+          cat > /opt/cmdb/env <<EOF
+          NEO4J_URI=bolt://localhost:7687
+          NEO4J_USER=neo4j
+          NEO4J_PASSWORD=$NEO4J_PWD
+          BUCKET=$BUCKET
+          REGION=$REGION
+          AWS_DEFAULT_REGION=$REGION
+          EOF
+          chmod 600 /opt/cmdb/env
+
+          # 6) Script de sincronizacion: baja la CMDB manual del bucket, la carga, deja que Cartography
+          #    descubra la cuenta y vuelve a enlazar lo descubierto con las arquitecturas.
+          cat > /opt/cmdb/sincronizar.sh <<'SCRIPT'
+          #!/bin/bash
+          set -u
+          cd /opt/cmdb
+          aws s3 cp "s3://$BUCKET/artefactos/cmdb/cargar_cmdb.py" cargar_cmdb.py --region "$REGION" || exit 1
+          aws s3 cp "s3://$BUCKET/artefactos/cmdb/activos.csv" activos.csv --region "$REGION" || exit 1
+          /opt/cmdb/venv/bin/python cargar_cmdb.py activos.csv
+          /opt/cmdb/venv/bin/cartography --neo4j-uri "$NEO4J_URI" --neo4j-user "$NEO4J_USER" \
+            --neo4j-password-env-var NEO4J_PASSWORD --selected-modules aws
+          /opt/cmdb/venv/bin/python cargar_cmdb.py activos.csv
+          SCRIPT
+          chmod 700 /opt/cmdb/sincronizar.sh
+
+          # 7) Cada 6 horas
+          cat > /etc/systemd/system/cmdb-sync.service <<'UNIT'
+          [Unit]
+          Description=Sincroniza la CMDB (Neo4j + Cartography)
+          After=docker.service
+          [Service]
+          Type=oneshot
+          EnvironmentFile=/opt/cmdb/env
+          ExecStart=/opt/cmdb/sincronizar.sh
+          TimeoutStartSec=3600
+          UNIT
+          cat > /etc/systemd/system/cmdb-sync.timer <<'UNIT'
+          [Unit]
+          Description=Sincroniza la CMDB cada 6 horas
+          [Timer]
+          OnCalendar=*-*-* 00/6:30:00
+          Persistent=true
+          [Install]
+          WantedBy=timers.target
+          UNIT
+          systemctl daemon-reload
+          systemctl enable --now cmdb-sync.timer
+
+          # 8) Primera sincronizacion, cuando Neo4j ya responde
+          for i in $(seq 1 60); do
+            docker exec neo4j cypher-shell -u neo4j -p "$NEO4J_PWD" "RETURN 1" >/dev/null 2>&1 && break
+            sleep 5
+          done
+          set -a; . /opt/cmdb/env; set +a
+          /opt/cmdb/sincronizar.sh >> /var/log/cmdb-sync.log 2>&1
+          echo "arranque terminado"
+
+  # --- Panel: API de datos (lee RDS) y API de sistema (frecuencias y ejecuciones) ---
+  RolApiDatos:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
+
+  FuncionApiDatos:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${NombreProyecto}-api-datos"
+      Runtime: python3.12
+      Handler: api_datos.handler
+      Role: !GetAtt RolApiDatos.Arn
+      Timeout: 30
+      MemorySize: 512
+      Code:
+        S3Bucket: !Ref BucketCurada
+        S3Key: !Sub "artefactos/lti-nucleo-${VersionNucleo}.zip"
+      VpcConfig:
+        SubnetIds:
+          - !Ref SubnetA
+          - !Ref SubnetB
+        SecurityGroupIds:
+          - !Ref SgLambdaRDS
+      Environment:
+        Variables:
+          DB_HOST: !GetAtt BaseDatosRDS.Endpoint.Address
+          DB_PASSWORD: !Ref ClaveUsuarios
+
+  RolApiSistema:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: configuracion-y-ejecuciones
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ssm:GetParameter
+                  - ssm:PutParameter
+                Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/lti/configuracion"
+              - Effect: Allow
+                Action: events:PutRule
+                Resource:
+                  - !GetAtt ReglaFuenteNVD.Arn
+                  - !GetAtt ReglaFuenteEPSS.Arn
+                  - !GetAtt ReglaFuenteOSV.Arn
+              - Effect: Allow
+                Action:
+                  - states:ListExecutions
+                  - states:StartExecution
+                Resource: !Ref FlujoDiario
+              - Effect: Allow
+                Action: states:DescribeExecution
+                Resource: !Sub "arn:aws:states:${AWS::Region}:${AWS::AccountId}:execution:${NombreProyecto}-flujo-diario:*"
+              - Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource: !Ref ArnSlack
+              - Effect: Allow
+                Action: ssm:SendCommand
+                Resource:
+                  - !Sub "arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:instance/${InstanciaCMDB}"
+                  - !Sub "arn:aws:ssm:${AWS::Region}::document/AWS-RunShellScript"
+
+  FuncionApiSistema:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${NombreProyecto}-api-sistema"
+      Runtime: python3.12
+      Handler: api_sistema.handler
+      Role: !GetAtt RolApiSistema.Arn
+      Timeout: 30
+      MemorySize: 256
+      Code:
+        S3Bucket: !Ref BucketCurada
+        S3Key: !Sub "artefactos/lti-nucleo-${VersionNucleo}.zip"
+      Environment:
+        Variables:
+          PARAM_CONFIG: /lti/configuracion
+          SLACK_ARN: !Ref ArnSlack
+          FLUJO_ARN: !Ref FlujoDiario
+          CMDB_ID: !Ref InstanciaCMDB
+          REGLA_NVD: !Ref ReglaFuenteNVD
+          REGLA_EPSS: !Ref ReglaFuenteEPSS
+          REGLA_OSV: !Ref ReglaFuenteOSV
+
+  # --- Panel: inicio de sesion (Cognito) ---
+  UsuariosPanel:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub "${NombreProyecto}-panel"
+      AliasAttributes:
+        - email
+      AutoVerifiedAttributes:
+        - email
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: true
+      MfaConfiguration: "OFF"
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 10
+          RequireLowercase: true
+          RequireUppercase: true
+          RequireNumbers: true
+          RequireSymbols: false
+      AccountRecoverySetting:
+        RecoveryMechanisms:
+          - Name: verified_email
+            Priority: 1
+
+  ClientePanel:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      UserPoolId: !Ref UsuariosPanel
+      ClientName: !Sub "${NombreProyecto}-panel-web"
+      GenerateSecret: false
+      PreventUserExistenceErrors: ENABLED
+      ExplicitAuthFlows:
+        - ALLOW_USER_PASSWORD_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+      IdTokenValidity: 60
+      AccessTokenValidity: 60
+      RefreshTokenValidity: 30
+      TokenValidityUnits:
+        IdToken: minutes
+        AccessToken: minutes
+        RefreshToken: days
+
+  GrupoAdminPanel:
+    Type: AWS::Cognito::UserPoolGroup
+    Properties:
+      UserPoolId: !Ref UsuariosPanel
+      GroupName: admin
+      Description: Cambia frecuencias, ejecuta fuentes y configura alertas
+
+  GrupoLecturaPanel:
+    Type: AWS::Cognito::UserPoolGroup
+    Properties:
+      UserPoolId: !Ref UsuariosPanel
+      GroupName: lectura
+      Description: Solo ve el panel
+
+  UsuarioAdminPanel:
+    Type: AWS::Cognito::UserPoolUser
+    Properties:
+      UserPoolId: !Ref UsuariosPanel
+      Username: admin
+      DesiredDeliveryMediums:
+        - EMAIL
+      UserAttributes:
+        - Name: email
+          Value: !Ref EmailAdminPanel
+        - Name: email_verified
+          Value: "true"
+
+  AdminEnGrupo:
+    Type: AWS::Cognito::UserPoolUserToGroupAttachment
+    DependsOn: UsuarioAdminPanel
+    Properties:
+      UserPoolId: !Ref UsuariosPanel
+      GroupName: !Ref GrupoAdminPanel
+      Username: admin
+
+  # --- Panel: API HTTP con Cognito delante ---
+  ApiPanel:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: !Sub "${NombreProyecto}-panel"
+      ProtocolType: HTTP
+
+  EtapaApiPanel:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref ApiPanel
+      StageName: $default
+      AutoDeploy: true
+      DefaultRouteSettings:
+        ThrottlingBurstLimit: 50
+        ThrottlingRateLimit: 25
+
+  AutorizadorPanel:
+    Type: AWS::ApiGatewayV2::Authorizer
+    Properties:
+      ApiId: !Ref ApiPanel
+      Name: cognito
+      AuthorizerType: JWT
+      IdentitySource:
+        - $request.header.Authorization
+      JwtConfiguration:
+        Audience:
+          - !Ref ClientePanel
+        Issuer: !Sub "https://cognito-idp.${AWS::Region}.amazonaws.com/${UsuariosPanel}"
+
+  IntegracionDatos:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref ApiPanel
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !GetAtt FuncionApiDatos.Arn
+      PayloadFormatVersion: "2.0"
+
+  IntegracionSistema:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref ApiPanel
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !GetAtt FuncionApiSistema.Arn
+      PayloadFormatVersion: "2.0"
+
+  RutaDatos:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref ApiPanel
+      RouteKey: "GET /api/{proxy+}"
+      AuthorizationType: JWT
+      AuthorizerId: !Ref AutorizadorPanel
+      Target: !Sub "integrations/${IntegracionDatos}"
+
+  RutaSistema:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref ApiPanel
+      RouteKey: "ANY /api/sistema/{proxy+}"
+      AuthorizationType: JWT
+      AuthorizerId: !Ref AutorizadorPanel
+      Target: !Sub "integrations/${IntegracionSistema}"
+
+  PermisoApiDatos:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref FuncionApiDatos
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiPanel}/*/*/api/*"
+
+  PermisoApiSistema:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref FuncionApiSistema
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiPanel}/*/*/api/*"
+
+  # --- Panel: pagina en S3 detras de CloudFront (la misma direccion sirve la pagina y /api/*) ---
+  BucketFront:
+    Type: AWS::S3::Bucket
+    Properties:
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+
+  AccesoFront:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub "${NombreProyecto}-front"
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  DistribucionPanel:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        Comment: !Sub "${NombreProyecto} panel"
+        DefaultRootObject: index.html
+        PriceClass: PriceClass_100
+        HttpVersion: http2
+        Origins:
+          - Id: front
+            DomainName: !GetAtt BucketFront.RegionalDomainName
+            S3OriginConfig:
+              OriginAccessIdentity: ""
+            OriginAccessControlId: !GetAtt AccesoFront.Id
+          - Id: api
+            DomainName: !Sub "${ApiPanel}.execute-api.${AWS::Region}.amazonaws.com"
+            CustomOriginConfig:
+              HTTPSPort: 443
+              OriginProtocolPolicy: https-only
+              OriginSSLProtocols:
+                - TLSv1.2
+        DefaultCacheBehavior:
+          TargetOriginId: front
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods: [GET, HEAD]
+          Compress: true
+          CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
+          ResponseHeadersPolicyId: 67f7725c-6f97-4210-82d7-5512b31e9d03
+        CacheBehaviors:
+          - PathPattern: /api/*
+            TargetOriginId: api
+            ViewerProtocolPolicy: https-only
+            AllowedMethods: [GET, HEAD, OPTIONS, PUT, PATCH, POST, DELETE]
+            CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
+            OriginRequestPolicyId: b689b0a8-53d0-40ab-baf2-68738e2966ac
+
+  PoliticaBucketFront:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref BucketFront
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Action: s3:GetObject
+            Resource: !Sub "${BucketFront.Arn}/*"
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${DistribucionPanel}"
+
+  PresupuestoBajo:
+    Type: AWS::Budgets::Budget
+    Properties:
+      Budget:
+        BudgetName: !Sub "${NombreProyecto}-alerta-10usd"
+        BudgetType: COST
+        TimeUnit: MONTHLY
+        BudgetLimit:
+          Amount: 10
+          Unit: USD
+      NotificationsWithSubscribers:
+        - Notification:
+            NotificationType: ACTUAL
+            ComparisonOperator: GREATER_THAN
+            Threshold: 80
+            ThresholdType: PERCENTAGE
+          Subscribers:
+            - SubscriptionType: EMAIL
+              Address: !Ref EmailPresupuesto
+
+  PresupuestoAlto:
+    Type: AWS::Budgets::Budget
+    Properties:
+      Budget:
+        BudgetName: !Sub "${NombreProyecto}-alerta-50usd"
+        BudgetType: COST
+        TimeUnit: MONTHLY
+        BudgetLimit:
+          Amount: 50
+          Unit: USD
+      NotificationsWithSubscribers:
+        - Notification:
+            NotificationType: ACTUAL
+            ComparisonOperator: GREATER_THAN
+            Threshold: 100
+            ThresholdType: PERCENTAGE
+          Subscribers:
+            - SubscriptionType: EMAIL
+              Address: !Ref EmailPresupuesto
+
+Outputs:
+  BucketRawNombre:
+    Value: !Ref BucketRaw
+  BucketCuradaNombre:
+    Value: !Ref BucketCurada
+  FuncionConectorNombre:
+    Value: !Ref FuncionConector
+  FuncionEPSSNombre:
+    Value: !Ref FuncionEPSS
+  FuncionOSVNombre:
+    Value: !Ref FuncionOSV
+  BucketCuradaArn:
+    Value: !GetAtt BucketCurada.Arn
+  FlujoDiarioArn:
+    Value: !Ref FlujoDiario
+  FuncionNormalizacionCuradaNombre:
+    Value: !Ref FuncionNormalizacionCurada
+  FuncionCargaNombre:
+    Value: !Ref FuncionCarga
+  FuncionCruceRDSNombre:
+    Value: !Ref FuncionCruceRDS
+  CMDBUrl:
+    Value: !Sub "http://${InstanciaCMDB.PublicIp}:7474"
+  CMDBBolt:
+    Value: !Sub "bolt://${InstanciaCMDB.PublicIp}:7687"
+  CMDBInstanciaId:
+    Value: !Ref InstanciaCMDB
+  RDSEndpoint:
+    Value: !GetAtt BaseDatosRDS.Endpoint.Address
+  RDSPuerto:
+    Value: !GetAtt BaseDatosRDS.Endpoint.Port
+  PanelUrl:
+    Value: !Sub "https://${DistribucionPanel.DomainName}"
+  PanelBucket:
+    Value: !Ref BucketFront
+  PanelDistribucionId:
+    Value: !Ref DistribucionPanel
+  CognitoUserPoolId:
+    Value: !Ref UsuariosPanel
+  CognitoClientId:
+    Value: !Ref ClientePanel
+  ApiPanelId:
+    Value: !Ref ApiPanel

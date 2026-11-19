@@ -1,0 +1,28 @@
+{
+  "normalizado": "2026-11-10T01:00:00+00:00",
+  "fuente_nvd": "prueba-manual",
+  "fuente_kev": "prueba-manual",
+  "fuente_epss": "prueba-manual",
+  "cves": [
+    {
+      "cve": "CVE-2026-PRUEBA-1",
+      "cvss": 9.8,
+      "descripcion": "CVE de prueba inyectado a mano para validar el cruce determinista contra Envoy.",
+      "productos": [
+        {"vendor": "envoyproxy", "producto": "envoy", "version_desde": "1.28.0", "version_hasta": "1.30.4"}
+      ],
+      "en_kev": true,
+      "epss": 0.87
+    },
+    {
+      "cve": "CVE-2026-PRUEBA-2",
+      "cvss": 5.3,
+      "descripcion": "CVE de prueba sin rango de version, para validar que queda marcado como ambiguo.",
+      "productos": [
+        {"vendor": "the_kubernetes_authors", "producto": "kubernetes", "version_desde": null, "version_hasta": null}
+      ],
+      "en_kev": false,
+      "epss": 0.02
+    }
+  ]
+}
