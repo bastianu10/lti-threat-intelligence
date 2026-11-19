@@ -13,7 +13,7 @@ from lti_db import agregar_argumentos, conectar, separar_sql
 def main():
     ap = argparse.ArgumentParser()
     agregar_argumentos(ap, "lti_app")
-    ap.add_argument("--sql", default="descubrimiento.sql")
+    ap.add_argument("--sql", default="bd/descubrimiento.sql")
     ap.add_argument("--clave-usuarios", required=True)
     args = ap.parse_args()
     if len(args.clave_usuarios) < 8 or "'" in args.clave_usuarios:

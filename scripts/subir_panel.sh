@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Sube el panel a S3 y borra la cache de CloudFront. Uso: bash subir_front.sh   (desde la carpeta lti)
+# Sube el panel a S3 y borra la cache de CloudFront. Uso: bash scripts/subir_panel.sh
 set -euo pipefail
+cd "$(dirname "$0")/.."
 PERFIL=${PERFIL:-lti}; REGION=${REGION:-us-east-2}; STACK=${STACK:-lti-prototipo}
 salida() { aws cloudformation describe-stacks --stack-name "$STACK" --region "$REGION" --profile "$PERFIL" \
   --query "Stacks[0].Outputs[?OutputKey=='$1'].OutputValue" --output text; }

@@ -54,7 +54,7 @@ def main():
     ap.add_argument("--curada-dir", help="carpeta local con manifest.json y las partes")
     ap.add_argument("--profile")
     ap.add_argument("--region", default="us-east-2")
-    ap.add_argument("--inventario", default="activos_v3.csv", help="para crear en el catalogo los productos del inventario")
+    ap.add_argument("--inventario", default="datos/activos_v3.csv", help="para crear en el catalogo los productos del inventario")
     ap.add_argument("--tipo", default="semanal_completa", choices=["semanal_completa", "diaria_kev_criticos"])
     args = ap.parse_args()
 

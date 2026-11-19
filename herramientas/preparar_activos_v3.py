@@ -51,8 +51,8 @@ def minutos(t):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--entrada", default="activos.csv")
-    ap.add_argument("--salida", default="activos_v3.csv")
+    ap.add_argument("--entrada", default="datos/activos.csv")
+    ap.add_argument("--salida", default="datos/activos_v3.csv")
     a = ap.parse_args()
     filas = list(csv.DictReader(open(a.entrada, encoding="utf-8")))
     cols = ["codigo", "nombre", "tipo", "capa", "dominio_negocio", "criticidad", "clasificacion_informacion",

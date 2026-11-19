@@ -13,7 +13,7 @@ from lti_db import agregar_argumentos, conectar, separar_sql
 def main():
     ap = argparse.ArgumentParser()
     agregar_argumentos(ap, "lti_app")
-    ap.add_argument("--sql", default="api.sql")
+    ap.add_argument("--sql", default="bd/api.sql")
     args = ap.parse_args()
     con = conectar(args)
     if not con.run("SELECT 1 FROM pg_tables WHERE schemaname='public' AND tablename='activos'"):

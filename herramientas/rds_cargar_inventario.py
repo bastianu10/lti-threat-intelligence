@@ -24,7 +24,7 @@ def intervalo(minutos):
 def main():
     ap = argparse.ArgumentParser()
     agregar_argumentos(ap, "u_inventario")
-    ap.add_argument("--csv", default="activos_v3.csv")
+    ap.add_argument("--csv", default="datos/activos_v3.csv")
     ap.add_argument("--tenant", default=TENANT_LYFT)
     args = ap.parse_args()
     t = args.tenant

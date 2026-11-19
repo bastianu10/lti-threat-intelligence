@@ -21,7 +21,7 @@ USUARIOS = {
 def main():
     ap = argparse.ArgumentParser()
     agregar_argumentos(ap, "lti_app")
-    ap.add_argument("--sql", default="esquema.sql")
+    ap.add_argument("--sql", default="bd/esquema.sql")
     ap.add_argument("--clave-usuarios", required=True,
                     help="clave de los usuarios u_ingesta, u_inventario, u_cruce y u_dashboard (min. 8, sin comillas)")
     args = ap.parse_args()
