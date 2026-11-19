@@ -22,7 +22,7 @@ Parameters:
     MinLength: 8
   VersionNucleo:
     Type: String
-    Default: v5
+    Default: v6
     AllowedPattern: "[a-z0-9.-]{1,20}"
     Description: Version del paquete lti-nucleo-<version>.zip en s3://<bucket curada>/artefactos/. Cambiala cada vez que subas un paquete nuevo.
   ArnSlack:

@@ -167,68 +167,129 @@ RUTAS = {"resumen": resumen, "tendencia": tendencia, "hallazgos": hallazgos, "re
 
 
 NIVEL = {"critica": 1, "alta": 2, "media": 3, "baja": 4}
-NOMBRE = {1: "CRITICA", 2: "ALTA", 3: "MEDIA", 4: "BAJA"}
+ICONO = {1: "🔴", 2: "🟠", 3: "🟡", 4: "🟢"}
+ETIQ = {1: "Crítica", 2: "Alta", 3: "Media", 4: "Baja"}
+PLURAL = {1: "críticas", 2: "altas", 3: "medias", 4: "bajas"}
+SINGULAR = {1: "crítica", 2: "alta", 3: "media", 4: "baja"}
+MESES = ("ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic")
+OFICIAL = "NOT v.es_cerrado AND NOT v.no_aplica AND (NOT v.agente_activo OR v.evaluado_por_agente)"
+
+
+def _fecha(d):
+    return f"{d.day} {MESES[d.month - 1]}" if d else None
+
+
+def _por_cve(filas):
+    """Una entrada por vulnerabilidad, con los sistemas afectados, en orden de urgencia."""
+    g = {}
+    for f in filas:
+        x = g.setdefault(f["cve"], {"cve": f["cve"], "nivel": 4, "riesgo": 0, "cvss": None, "epss": None,
+                                    "kev": False, "internet": False, "plazo": None, "activos": []})
+        x["nivel"] = min(x["nivel"], f["prioridad_final"] or 4)
+        x["riesgo"] = max(x["riesgo"], float(f["puntaje_riesgo"] or 0))
+        x["cvss"] = f["cvss"] if x["cvss"] is None else x["cvss"]
+        x["epss"] = f["epss"] if x["epss"] is None else x["epss"]
+        x["kev"] = x["kev"] or bool(f["en_kev"])
+        x["internet"] = x["internet"] or bool(f["expuesto_internet"])
+        if f["fecha_limite"] and (x["plazo"] is None or f["fecha_limite"] < x["plazo"]):
+            x["plazo"] = f["fecha_limite"]
+        if f["activo_codigo"] not in x["activos"]:
+            x["activos"].append(f["activo_codigo"])
+    return sorted(g.values(), key=lambda x: (x["nivel"], -x["riesgo"], x["cve"]))
+
+
+def _bloque(x):
+    n = len(x["activos"])
+    sis = ", ".join(x["activos"][:4]) + (f" y {n - 4} más" if n > 4 else "")
+    por_que = []
+    if x["kev"]:
+        por_que.append("⚠️ Ya la están explotando en ataques reales (lista CISA KEV)")
+    if x["internet"]:
+        por_que.append("🌐 Es alcanzable desde internet")
+    if x["epss"] is not None and float(x["epss"]) >= 0.3:
+        por_que.append(f"📈 Probabilidad de ataque en 30 días: {round(float(x['epss']) * 100)}%")
+    if x["cvss"] is not None:
+        por_que.append(f"Gravedad técnica: {float(x['cvss']):.1f} de 10".replace(".", ","))
+    lineas = [f"{ICONO[x['nivel']]} *{x['cve']}* · prioridad {ETIQ[x['nivel']].lower()}",
+              f"> *Afecta a {n} sistema{'s' if n != 1 else ''}:* {sis}"]
+    lineas += [f"> {t}" for t in por_que]
+    if x["plazo"]:
+        lineas.append(f"> ⏰ Plazo para corregir: *{_fecha(x['plazo'])}*")
+    return "\n".join(lineas)
+
+
+def _cuenta(filas):
+    return {k: sum(1 for f in filas if (f["prioridad_final"] or 4) == k) for k in (1, 2, 3, 4)}
+
+
+def _semaforo(c):
+    return "  ".join(f"{ICONO[k]} {c[k]} {SINGULAR[k] if c[k] == 1 else PLURAL[k]}" for k in (1, 2, 3, 4) if c[k]) or "Sin hallazgos"
+
+
+CAMPOS = """v.hallazgo_id AS id, v.cve, v.activo_codigo, v.expuesto_internet, v.prioridad_final, v.puntaje_riesgo,
+               v.en_kev, v.epss, v.fecha_limite,
+               (SELECT max(c.puntaje_base) FROM cvss_metricas c WHERE c.cve = v.cve) AS cvss"""
+ORDEN = "ORDER BY v.prioridad_final NULLS LAST, v.puntaje_riesgo DESC NULLS LAST, v.epss DESC NULLS LAST, v.cve LIMIT 500"
+PIE = "_Detalle completo, filtros y estado en el panel de Threat Intelligence._"
 
 
 def alerta(con, cfg):
-    """Arma el mensaje de Slack con los hallazgos abiertos que aun no se avisaron y que superan los umbrales."""
+    """Mensaje de Slack con lo nuevo de la lista oficial (aun no avisado) que supera los umbrales."""
     cfg = cfg or {}
     if not cfg.get("slack"):
         return {"enviar": False, "motivo": "slack_desactivado"}
     nivel = NIVEL.get(cfg.get("minPrio"), 4)
-    epss = float(cfg.get("epss", 0.5))
-    filas = _q(con, """
-        SELECT v.hallazgo_id AS id, v.cve, v.activo_codigo, v.expuesto_internet, v.prioridad_final, v.en_kev, v.epss,
-               (SELECT max(c.puntaje_base) FROM cvss_metricas c WHERE c.cve = v.cve) AS cvss
-          FROM v_lista_oficial v
-         WHERE NOT v.es_cerrado AND NOT v.no_aplica AND (NOT v.agente_activo OR v.evaluado_por_agente)
+    filas = _q(con, f"""
+        SELECT {CAMPOS} FROM v_lista_oficial v
+         WHERE {OFICIAL}
            AND NOT EXISTS (SELECT 1 FROM alertas_enviadas a WHERE a.hallazgo_id = v.hallazgo_id)
            AND (coalesce(v.prioridad_final, 4) <= CAST(:nivel AS integer) OR v.epss >= CAST(:epss AS numeric))
            AND (NOT CAST(:kev AS boolean) OR v.en_kev)
-         ORDER BY v.prioridad_final NULLS LAST, v.puntaje_riesgo DESC NULLS LAST, v.epss DESC NULLS LAST, v.cve
-         LIMIT 500""", nivel=nivel, epss=epss, kev=bool(cfg.get("soloKev")))
+         {ORDEN}""", nivel=nivel, epss=float(cfg.get("epss", 0.5)), kev=bool(cfg.get("soloKev")))
     if not filas:
         return {"enviar": False, "motivo": "sin_nuevos"}
-    n = len(filas)
-    cuenta = {k: sum(1 for f in filas if f["prioridad_final"] == k) for k in (1, 2, 3, 4)}
-    partes = [f"{cuenta[k]} {s if cuenta[k] == 1 else pl}" for k, s, pl in
-              ((1, "critico", "criticos"), (2, "alto", "altos"), (3, "medio", "medios"), (4, "bajo", "bajos")) if cuenta[k]]
-    titulo = f"Lyft TI: {n} hallazgo{'s' if n != 1 else ''} nuevo{'s' if n != 1 else ''}" + (f" ({', '.join(partes)})" if partes else "")
-    lineas = []
-    for f in filas[:10]:
-        det = [f"CVSS {f['cvss']:.1f}".replace(".", ",")] if f["cvss"] is not None else []
-        if f["epss"] is not None:
-            det.append(f"EPSS {float(f['epss']):.2f}".replace(".", ","))
-        if f["en_kev"]:
-            det.append("KEV")
-        if f["expuesto_internet"]:
-            det.append("expuesto a internet")
-        lineas.append(f"- {NOMBRE.get(f['prioridad_final'], 'SIN EVALUAR')} {f['cve']} en {f['activo_codigo']}"
-                      + (f" ({', '.join(det)})" if det else ""))
-    if n > 10:
-        lineas.append(f"... y {n - 10} mas. Revisa el panel de Threat Intelligence.")
-    return {"enviar": True, "title": titulo[:150], "body": "\n".join(lineas)[:3000], "ids": [str(f["id"]) for f in filas]}
+    cves = _por_cve(filas)
+    c = _cuenta(filas)
+    peor = cves[0]["nivel"]
+    n = len(cves)
+    titulo = f"{ICONO[peor]} Lyft TI · {n} vulnerabilidad{'es' if n != 1 else ''} nueva{'s' if n != 1 else ''} detectada{'s' if n != 1 else ''}"
+    kev = sum(1 for x in cves if x["kev"])
+    cab = [f"*Resumen:* {_semaforo(c)}"]
+    if kev:
+        cab.append(f"⚠️ {kev} de ellas ya se explota{'n' if kev != 1 else ''} en ataques reales: atender primero.")
+    cuerpo = ["", "\n".join(cab), "", "*Lo más urgente*"] + [_bloque(x) + "\n" for x in cves[:5]]
+    if n > 5:
+        cuerpo.append(f"_...y {n - 5} vulnerabilidades más, de menor urgencia._")
+    cuerpo.append(PIE)
+    return {"enviar": True, "title": titulo[:150], "body": "\n".join(cuerpo)[:3000], "ids": [str(f["id"]) for f in filas]}
 
 
 def resumen_diario(con, cfg):
-    """Resumen diario: la lista oficial abierta, ordenada por prioridad y riesgo."""
+    """Resumen diario para direccion: estado de toda la lista oficial abierta."""
     cfg = cfg or {}
     if not (cfg.get("slack") and cfg.get("resumen")):
         return {"enviar": False, "motivo": "resumen_desactivado"}
-    filas = _q(con, """
-        SELECT v.cve, v.activo_codigo, v.prioridad_final, v.puntaje_riesgo, v.en_kev, v.epss, v.expuesto_internet
-          FROM v_lista_oficial v
-         WHERE NOT v.es_cerrado AND NOT v.no_aplica AND (NOT v.agente_activo OR v.evaluado_por_agente)
-         ORDER BY v.prioridad_final NULLS LAST, v.puntaje_riesgo DESC NULLS LAST, v.cve LIMIT 500""")
-    n = len(filas)
-    cuenta = {k: sum(1 for f in filas if (f["prioridad_final"] or 4) == k) for k in (1, 2, 3, 4)}
-    titulo = (f"Lyft TI resumen diario: {n} abiertos ({cuenta[1]} criticos, {cuenta[2]} altos, "
-              f"{cuenta[3]} medios, {cuenta[4]} bajos)")
-    lineas = [f"- {NOMBRE.get(f['prioridad_final'], 'BAJA')} {f['cve']} en {f['activo_codigo']}"
-              + (" (KEV)" if f["en_kev"] else "") for f in filas[:10]]
-    if n > 10:
-        lineas.append(f"... y {n - 10} mas. Revisa el panel de Threat Intelligence.")
-    return {"enviar": True, "title": titulo[:150], "body": "\n".join(lineas) or "Sin hallazgos abiertos.", "ids": []}
+    filas = _q(con, f"SELECT {CAMPOS} FROM v_lista_oficial v WHERE {OFICIAL} {ORDEN}")
+    if not filas:
+        return {"enviar": True, "title": "🟢 Lyft TI · Resumen diario: sin vulnerabilidades abiertas",
+                "body": "\nNo hay vulnerabilidades abiertas que atender hoy.\n" + PIE, "ids": []}
+    cves = _por_cve(filas)
+    c = _cuenta(filas)
+    sistemas = len({f["activo_codigo"] for f in filas})
+    kev = sum(1 for x in cves if x["kev"])
+    pronto = sum(1 for x in cves if x["plazo"] and x["plazo"] <= datetime.date.today() + datetime.timedelta(days=2))
+    titulo = f"{ICONO[cves[0]['nivel']]} Lyft TI · Resumen diario: {len(cves)} vulnerabilidad{'es' if len(cves) != 1 else ''} abierta{'s' if len(cves) != 1 else ''}"
+    cab = [f"*Estado hoy:* {_semaforo(c)}",
+           f"Afectan a {sistemas} sistema{'s' if sistemas != 1 else ''}."]
+    if kev:
+        cab.append(f"⚠️ {kev} ya se explota{'n' if kev != 1 else ''} en ataques reales.")
+    if pronto:
+        cab.append(f"⏰ {pronto} con plazo de corrección en los próximos 2 días.")
+    cuerpo = ["", "\n".join(cab), "", "*Las más urgentes*"] + [_bloque(x) + "\n" for x in cves[:3]]
+    if len(cves) > 3:
+        cuerpo.append(f"_...y {len(cves) - 3} más en el panel._")
+    cuerpo.append(PIE)
+    return {"enviar": True, "title": titulo[:150], "body": "\n".join(cuerpo)[:3000], "ids": []}
 
 
 def marcar(con, ids):
