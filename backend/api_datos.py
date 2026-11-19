@@ -71,7 +71,7 @@ def calcular(con):
                count(*) FILTER (WHERE en_kev)                                       AS kev,
                count(*) FILTER (WHERE epss >= 0.5)                                  AS epss_alto,
                count(*) FILTER (WHERE fecha_limite <= current_date + 2)             AS sla_por_vencer
-          FROM v_hallazgos_tablero WHERE NOT es_cerrado""")[0]
+          FROM v_lista_oficial WHERE NOT es_cerrado AND NOT no_aplica AND (NOT agente_activo OR evaluado_por_agente)""")[0]
     h["activos_expuestos"] = con.run(
         "SELECT count(DISTINCT activo_id) FROM despliegues WHERE expuesto_internet AND dado_de_baja_en IS NULL")[0][0]
     h["activos_total"] = con.run("SELECT count(*) FROM activos WHERE dado_de_baja_en IS NULL")[0][0]
@@ -103,7 +103,11 @@ def resumen(con, _p):
     prev = antes[0] if antes else None
     cambio = {k: (hoy[k] - prev[k] if prev else None)
               for k in ("criticas", "kev", "epss_alto", "activos_expuestos", "sin_registrar", "sla_por_vencer")}
-    return {"hoy": hoy, "cambio": cambio, "comparado_con": prev["dia"] if prev else None,
+    ag = _q(con, """SELECT coalesce(bool_or(agente_activo), false) AS activo,
+                      count(*) FILTER (WHERE NOT es_cerrado AND agente_activo AND NOT evaluado_por_agente) AS pendientes,
+                      count(*) FILTER (WHERE NOT es_cerrado AND no_aplica) AS no_aplican
+                 FROM v_lista_oficial""")[0]
+    return {"agente": ag, "hoy": hoy, "cambio": cambio, "comparado_con": prev["dia"] if prev else None,
             "serie_corta": _q(con, "SELECT dia, criticas, kev, epss_alto, activos_expuestos, sin_registrar, sla_por_vencer "
                                    "FROM metricas_diarias ORDER BY dia DESC LIMIT 14")[::-1]}
 
@@ -119,9 +123,10 @@ def hallazgos(con, p):
     return {"items": _q(con, """
         SELECT v.hallazgo_id AS id, v.cve, v.activo_codigo, v.activo, v.criticidad, v.ambiente, v.expuesto_internet,
                v.estado, v.prioridad_final, v.puntaje_riesgo, v.en_kev, v.epss, v.fecha_limite,
-               v.requiere_revision_humana,
+               v.requiere_revision_humana, v.evaluado_por_agente, v.no_aplica,
+               (v.agente_activo AND NOT v.evaluado_por_agente) AS pendiente_agente,
                (SELECT max(c.puntaje_base) FROM cvss_metricas c WHERE c.cve = v.cve) AS cvss
-          FROM v_hallazgos_tablero v
+          FROM v_lista_oficial v
          WHERE NOT v.es_cerrado
          ORDER BY v.prioridad_final NULLS LAST, v.puntaje_riesgo DESC NULLS LAST, v.en_kev DESC, v.detectado_en DESC
          LIMIT CAST(:n AS integer)""", n=n)}
@@ -149,8 +154,8 @@ def cobertura(con, _p):
 
 
 def por_criticidad(con, _p):
-    return {"items": _q(con, "SELECT criticidad, count(*) AS total FROM v_hallazgos_tablero "
-                             "WHERE NOT es_cerrado GROUP BY criticidad ORDER BY criticidad DESC")}
+    return {"items": _q(con, "SELECT criticidad, count(*) AS total FROM v_lista_oficial "
+                             "WHERE NOT es_cerrado AND NOT no_aplica AND (NOT agente_activo OR evaluado_por_agente) GROUP BY criticidad ORDER BY criticidad DESC")}
 
 
 def ambiguos(_con, _p):
@@ -161,7 +166,7 @@ RUTAS = {"resumen": resumen, "tendencia": tendencia, "hallazgos": hallazgos, "re
          "cobertura": cobertura, "por-criticidad": por_criticidad, "ambiguos": ambiguos}
 
 
-NIVEL = {"critica": 1, "alta": 2, "media": 3}
+NIVEL = {"critica": 1, "alta": 2, "media": 3, "baja": 4}
 NOMBRE = {1: "CRITICA", 2: "ALTA", 3: "MEDIA", 4: "BAJA"}
 
 
@@ -170,24 +175,24 @@ def alerta(con, cfg):
     cfg = cfg or {}
     if not cfg.get("slack"):
         return {"enviar": False, "motivo": "slack_desactivado"}
-    nivel = NIVEL.get(cfg.get("minPrio"), 2)
+    nivel = NIVEL.get(cfg.get("minPrio"), 4)
     epss = float(cfg.get("epss", 0.5))
     filas = _q(con, """
         SELECT v.hallazgo_id AS id, v.cve, v.activo_codigo, v.expuesto_internet, v.prioridad_final, v.en_kev, v.epss,
                (SELECT max(c.puntaje_base) FROM cvss_metricas c WHERE c.cve = v.cve) AS cvss
-          FROM v_hallazgos_tablero v
-         WHERE NOT v.es_cerrado
+          FROM v_lista_oficial v
+         WHERE NOT v.es_cerrado AND NOT v.no_aplica AND (NOT v.agente_activo OR v.evaluado_por_agente)
            AND NOT EXISTS (SELECT 1 FROM alertas_enviadas a WHERE a.hallazgo_id = v.hallazgo_id)
-           AND (v.prioridad_final <= CAST(:nivel AS integer) OR v.epss >= CAST(:epss AS numeric))
+           AND (coalesce(v.prioridad_final, 4) <= CAST(:nivel AS integer) OR v.epss >= CAST(:epss AS numeric))
            AND (NOT CAST(:kev AS boolean) OR v.en_kev)
-         ORDER BY v.prioridad_final NULLS LAST, v.epss DESC NULLS LAST, v.cve
+         ORDER BY v.prioridad_final NULLS LAST, v.puntaje_riesgo DESC NULLS LAST, v.epss DESC NULLS LAST, v.cve
          LIMIT 500""", nivel=nivel, epss=epss, kev=bool(cfg.get("soloKev")))
     if not filas:
         return {"enviar": False, "motivo": "sin_nuevos"}
     n = len(filas)
-    cuenta = {k: sum(1 for f in filas if f["prioridad_final"] == k) for k in (1, 2, 3)}
+    cuenta = {k: sum(1 for f in filas if f["prioridad_final"] == k) for k in (1, 2, 3, 4)}
     partes = [f"{cuenta[k]} {s if cuenta[k] == 1 else pl}" for k, s, pl in
-              ((1, "critico", "criticos"), (2, "alto", "altos"), (3, "medio", "medios")) if cuenta[k]]
+              ((1, "critico", "criticos"), (2, "alto", "altos"), (3, "medio", "medios"), (4, "bajo", "bajos")) if cuenta[k]]
     titulo = f"Lyft TI: {n} hallazgo{'s' if n != 1 else ''} nuevo{'s' if n != 1 else ''}" + (f" ({', '.join(partes)})" if partes else "")
     lineas = []
     for f in filas[:10]:
@@ -203,6 +208,27 @@ def alerta(con, cfg):
     if n > 10:
         lineas.append(f"... y {n - 10} mas. Revisa el panel de Threat Intelligence.")
     return {"enviar": True, "title": titulo[:150], "body": "\n".join(lineas)[:3000], "ids": [str(f["id"]) for f in filas]}
+
+
+def resumen_diario(con, cfg):
+    """Resumen diario: la lista oficial abierta, ordenada por prioridad y riesgo."""
+    cfg = cfg or {}
+    if not (cfg.get("slack") and cfg.get("resumen")):
+        return {"enviar": False, "motivo": "resumen_desactivado"}
+    filas = _q(con, """
+        SELECT v.cve, v.activo_codigo, v.prioridad_final, v.puntaje_riesgo, v.en_kev, v.epss, v.expuesto_internet
+          FROM v_lista_oficial v
+         WHERE NOT v.es_cerrado AND NOT v.no_aplica AND (NOT v.agente_activo OR v.evaluado_por_agente)
+         ORDER BY v.prioridad_final NULLS LAST, v.puntaje_riesgo DESC NULLS LAST, v.cve LIMIT 500""")
+    n = len(filas)
+    cuenta = {k: sum(1 for f in filas if (f["prioridad_final"] or 4) == k) for k in (1, 2, 3, 4)}
+    titulo = (f"Lyft TI resumen diario: {n} abiertos ({cuenta[1]} criticos, {cuenta[2]} altos, "
+              f"{cuenta[3]} medios, {cuenta[4]} bajos)")
+    lineas = [f"- {NOMBRE.get(f['prioridad_final'], 'BAJA')} {f['cve']} en {f['activo_codigo']}"
+              + (" (KEV)" if f["en_kev"] else "") for f in filas[:10]]
+    if n > 10:
+        lineas.append(f"... y {n - 10} mas. Revisa el panel de Threat Intelligence.")
+    return {"enviar": True, "title": titulo[:150], "body": "\n".join(lineas) or "Sin hallazgos abiertos.", "ids": []}
 
 
 def marcar(con, ids):
@@ -225,7 +251,7 @@ def handler(event, context):
             print("snapshot", m)
             return {"snapshot": m}
         if event.get("accion") == "alerta":                        # lo llama Step Functions
-            r = alerta(con, event.get("alertas"))
+            r = (resumen_diario if event.get("resumen") else alerta)(con, event.get("alertas"))
             print("alerta", {k: v for k, v in r.items() if k not in ("body", "ids")}, "ids", len(r.get("ids", [])))
             return r
         if event.get("accion") == "marcar":

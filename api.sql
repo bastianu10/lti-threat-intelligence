@@ -45,3 +45,21 @@ CREATE POLICY p_tenant ON alertas_enviadas USING (tenant_id = tenant_actual())
 GRANT SELECT, INSERT ON alertas_enviadas TO ti_dashboard;
 
 COMMIT;
+
+-- Lista oficial: lo que sale del agente. Si el agente no ha corrido con exito en los ultimos 3 dias,
+-- la lista oficial es la del filtro determinista (el flujo no se queda sin avisar).
+GRANT SELECT ON ejecuciones_agente TO ti_dashboard;
+CREATE OR REPLACE VIEW v_lista_oficial WITH (security_invoker = true) AS
+SELECT v.*,
+       (ev.ejecucion_id IS NOT NULL) AS evaluado_por_agente,
+       EXISTS (SELECT 1 FROM evaluacion_senales s
+                WHERE s.evaluacion_id = ev.id AND s.codigo = 'no_aplica') AS no_aplica,
+       EXISTS (SELECT 1 FROM ejecuciones_agente x
+                WHERE x.resultado IN ('exito','parcial')
+                  AND x.finalizada_en > now() - interval '3 days') AS agente_activo
+  FROM v_hallazgos_tablero v
+  LEFT JOIN LATERAL (
+        SELECT e.id, e.ejecucion_id FROM evaluaciones e
+         WHERE e.tenant_id = v.tenant_id AND e.hallazgo_id = v.hallazgo_id
+         ORDER BY e.evaluado_en DESC, e.id DESC LIMIT 1) ev ON TRUE;
+GRANT SELECT ON v_lista_oficial TO ti_dashboard;

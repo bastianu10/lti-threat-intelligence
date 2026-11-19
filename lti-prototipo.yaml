@@ -22,7 +22,7 @@ Parameters:
     MinLength: 8
   VersionNucleo:
     Type: String
-    Default: v4
+    Default: v5
     AllowedPattern: "[a-z0-9.-]{1,20}"
     Description: Version del paquete lti-nucleo-<version>.zip en s3://<bucket curada>/artefactos/. Cambiala cada vez que subas un paquete nuevo.
   ArnSlack:
@@ -644,7 +644,7 @@ Resources:
                 "ResultSelector": {"alertas.$": "$.Payload"}, "ResultPath": "$.cfg",
                 "Catch": [{"ErrorEquals": ["States.ALL"], "Next": "SinAlertas"}], "Next": "ArmarAlerta"},
               "ArmarAlerta": {"Type": "Task", "Resource": "arn:aws:states:::lambda:invoke",
-                "Parameters": {"FunctionName": "${ArnApiDatos}", "Payload": {"accion": "alerta", "alertas.$": "$.cfg.alertas"}}, "TimeoutSeconds": 60,
+                "Parameters": {"FunctionName": "${ArnApiDatos}", "Payload": {"accion": "alerta", "alertas.$": "$.cfg.alertas", "resumen.$": "$.resumen"}}, "TimeoutSeconds": 60,
                 "ResultSelector": {"alerta.$": "$.Payload"}, "ResultPath": "$.res",
                 "Catch": [{"ErrorEquals": ["States.ALL"], "Next": "SinAlertas"}], "Next": "HayAlerta"},
               "HayAlerta": {"Type": "Choice", "Choices": [{"Variable": "$.res.alerta.enviar", "BooleanEquals": true, "Next": "EnviarSlack"}], "Default": "SinAlertas"},
@@ -699,7 +699,7 @@ Resources:
         - Arn: !Ref FlujoDiario
           Id: flujo
           RoleArn: !GetAtt RolEventosFlujo.Arn
-          Input: '{"nvd":true,"epss":false,"osv":false}'
+          Input: '{"nvd":true,"epss":false,"osv":false,"resumen":false}'
 
   ReglaFuenteEPSS:
     Type: AWS::Events::Rule
@@ -712,7 +712,7 @@ Resources:
         - Arn: !Ref FlujoDiario
           Id: flujo
           RoleArn: !GetAtt RolEventosFlujo.Arn
-          Input: '{"nvd":false,"epss":true,"osv":false}'
+          Input: '{"nvd":false,"epss":true,"osv":false,"resumen":false}'
 
   ReglaFuenteOSV:
     Type: AWS::Events::Rule
@@ -725,7 +725,20 @@ Resources:
         - Arn: !Ref FlujoDiario
           Id: flujo
           RoleArn: !GetAtt RolEventosFlujo.Arn
-          Input: '{"nvd":false,"epss":false,"osv":true}'
+          Input: '{"nvd":false,"epss":false,"osv":true,"resumen":false}'
+
+  ReglaResumen:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub "${NombreProyecto}-resumen-diario"
+      Description: "Resumen diario a Slack: la hora se cambia desde el panel (Configuracion)"
+      ScheduleExpression: cron(0 9 * * ? *)
+      State: ENABLED
+      Targets:
+        - Arn: !Ref FlujoDiario
+          Id: flujo
+          RoleArn: !GetAtt RolEventosFlujo.Arn
+          Input: '{"nvd":false,"epss":false,"osv":false,"resumen":true}'
 
   # --- CMDB en AWS: Neo4j + Cartography en una instancia, con rol de SOLO LECTURA (sin llaves guardadas) ---
   RolCMDB:
@@ -958,6 +971,7 @@ Resources:
                   - !GetAtt ReglaFuenteNVD.Arn
                   - !GetAtt ReglaFuenteEPSS.Arn
                   - !GetAtt ReglaFuenteOSV.Arn
+                  - !GetAtt ReglaResumen.Arn
               - Effect: Allow
                 Action:
                   - states:ListExecutions
@@ -996,6 +1010,7 @@ Resources:
           REGLA_NVD: !Ref ReglaFuenteNVD
           REGLA_EPSS: !Ref ReglaFuenteEPSS
           REGLA_OSV: !Ref ReglaFuenteOSV
+          REGLA_RESUMEN: !Ref ReglaResumen
 
   # --- Panel: inicio de sesion (Cognito) ---
   UsuariosPanel:

@@ -24,6 +24,7 @@ PARAM = os.environ["PARAM_CONFIG"]
 FLUJO = os.environ["FLUJO_ARN"]
 CMDB_ID = os.environ["CMDB_ID"]
 REGLAS = {"nvd": os.environ["REGLA_NVD"], "epss": os.environ["REGLA_EPSS"], "osv": os.environ["REGLA_OSV"]}
+REGLA_RESUMEN = os.environ["REGLA_RESUMEN"]
 MINUTO = {"nvd": 0, "epss": 15, "osv": 30}       # escalonado: las tres fuentes no arrancan el flujo al mismo minuto
 FREQS = ("1h", "6h", "12h", "24h", "7d")
 DOWS = ("MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN")
@@ -31,7 +32,7 @@ DOWS = ("MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN")
 DEFECTO = {
     "feeds": {k: {"freq": "24h", "hora": 12, "dow": "MON", "pausado": False} for k in REGLAS},
     "cmdb": {"intervalo": 6},
-    "alertas": {"slack": True, "canal": "#lti-alertas", "minPrio": "alta", "epss": 0.5, "soloKev": False,
+    "alertas": {"slack": True, "canal": "#lti-alertas", "minPrio": "baja", "epss": 0.5, "soloKev": False,
                 "resumen": True, "hora": 9},
 }
 
@@ -82,7 +83,7 @@ def validar(c):
     a = c.get("alertas") or {}
     if not re.fullmatch(r"#[a-z0-9._-]{1,79}", str(a.get("canal", ""))):
         raise ValueError("El canal de Slack debe verse asi: #nombre-del-canal")
-    if a.get("minPrio") not in ("critica", "alta", "media"):
+    if a.get("minPrio") not in ("critica", "alta", "media", "baja"):
         raise ValueError("Prioridad minima no valida")
     ep = a.get("epss")
     if not isinstance(ep, (int, float)) or isinstance(ep, bool) or not 0 <= ep <= 1:
@@ -115,6 +116,15 @@ def aplicar(nueva, anterior):
         except Exception as e:
             print("ERROR regla", k, repr(e))
             res[k] = "error"
+    try:
+        al = nueva["alertas"]
+        ev.put_rule(Name=REGLA_RESUMEN, ScheduleExpression=f"cron(0 {al['hora']} * * ? *)",
+                    State="ENABLED" if al["resumen"] and al["slack"] else "DISABLED",
+                    Description="Resumen diario a Slack: lo administra el panel (Configuracion)")
+        res["resumen"] = "aplicado"
+    except Exception as e:
+        print("ERROR regla resumen", repr(e))
+        res["resumen"] = "error"
     if nueva["cmdb"]["intervalo"] != anterior["cmdb"]["intervalo"]:
         h = nueva["cmdb"]["intervalo"]
         cal = "*-*-* 00:30:00" if h == 24 else f"*-*-* 00/{h}:30:00"
@@ -150,6 +160,7 @@ def ejecutar(cuerpo):
     if f not in ("nvd", "epss", "osv", "todas"):
         raise ValueError("Fuente no valida")
     entrada = {"nvd": True, "epss": True, "osv": True} if f == "todas" else {k: (k == f) for k in REGLAS}
+    entrada["resumen"] = False
     r = sf.start_execution(stateMachineArn=FLUJO, input=json.dumps(entrada))
     return {"iniciada": r["startDate"], "fuente": f}
 

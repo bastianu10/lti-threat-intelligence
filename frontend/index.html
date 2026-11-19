@@ -312,7 +312,7 @@ var MOCK=(function(){
     "ambiguos":{items:[{cve:"CVE-2026-31211",activo:"kubernetes-prod",motivo:"Sin rango de versión en NVD"},{cve:"CVE-2026-30902",activo:"envoy-mesh",motivo:"Versión del componente no declarada"},{cve:"CVE-2026-29988",activo:"postgres-pricing",motivo:"Rango en formato no estándar"}]},
     "sistema/ejecuciones":{items:[0,1,2,3,4].map(function(i){var ini=ahora-4*3600e3-i*864e5,mal=i===3;return {nombre:"demo"+i,estado:mal?"FAILED":"SUCCEEDED",inicio:new Date(ini).toISOString(),fin:new Date(ini+(mal?65:240+i*7)*1000).toISOString(),motivo:mal?"El conector NVD respondió 503":""}})},
     "sistema/configuracion":{feeds:{nvd:{freq:"24h",hora:12,dow:"MON",pausado:false},epss:{freq:"24h",hora:12,dow:"MON",pausado:false},osv:{freq:"24h",hora:12,dow:"MON",pausado:false}},
-      cmdb:{intervalo:6},alertas:{slack:true,canal:"#lti-alertas",minPrio:"alta",epss:0.5,soloKev:false,resumen:true,hora:9}}
+      cmdb:{intervalo:6},alertas:{slack:true,canal:"#lti-alertas",minPrio:"baja",epss:0.5,soloKev:false,resumen:true,hora:9}}
   };
 })();
 
@@ -502,9 +502,9 @@ var R={
   top:function(b){
     var d=dato("hallazgos");if(!d)return falla(b,"hallazgos");
     if(!d.items.length)return vacio(b,"No hay hallazgos abiertos. Cuando el cruce encuentre coincidencias aparecerán aquí.");
-    b.innerHTML='<div class="tbl"><table><thead><tr><th>CVE</th><th>Activo</th><th class="num">CVSS</th><th class="num">EPSS</th><th>KEV</th><th>Prioridad</th><th>Estado</th></tr></thead><tbody>'+
+    b.innerHTML='<div class="tbl"><table><thead><tr><th>CVE</th><th>Activo</th><th class="num">CVSS</th><th class="num">EPSS</th><th>KEV</th><th>Prioridad</th><th>Agente</th><th>Estado</th></tr></thead><tbody>'+
       d.items.map(function(r){var p=PRIO[r.prioridad_final]||["Sin evaluar","pr4"];
-        return '<tr><td class="mono">'+esc(r.cve)+'</td><td>'+esc(r.activo_codigo)+(r.expuesto_internet?' <span class="chip" style="padding:0 6px;font-size:11px">Internet</span>':'')+'</td><td class="num">'+(r.cvss==null?"—":Number(r.cvss).toFixed(1).replace(".",","))+'</td><td class="num">'+(r.epss==null?"—":Number(r.epss).toFixed(2).replace(".",","))+'</td><td>'+(r.en_kev?'<span class="pill st-bad">'+IC.warn+'Sí</span>':'<span style="color:var(--muted)">No</span>')+'</td><td><span class="pill '+p[1]+'">'+p[0]+'</span></td><td>'+esc(ESTADO[r.estado]||r.estado)+'</td></tr>'}).join("")+'</tbody></table></div>';
+        return '<tr><td class="mono">'+esc(r.cve)+'</td><td>'+esc(r.activo_codigo)+(r.expuesto_internet?' <span class="chip" style="padding:0 6px;font-size:11px">Internet</span>':'')+'</td><td class="num">'+(r.cvss==null?"—":Number(r.cvss).toFixed(1).replace(".",","))+'</td><td class="num">'+(r.epss==null?"—":Number(r.epss).toFixed(2).replace(".",","))+'</td><td>'+(r.en_kev?'<span class="pill st-bad">'+IC.warn+'Sí</span>':'<span style="color:var(--muted)">No</span>')+'</td><td><span class="pill '+p[1]+'">'+p[0]+'</span></td><td>'+(r.no_aplica?'<span class="pill st-off">No aplica</span>':r.pendiente_agente?'<span class="pill st-warn">Pendiente</span>':r.evaluado_por_agente?'<span class="pill st-ok">Oficial</span>':'<span style="color:var(--muted)">Determinista</span>')+'</td><td>'+esc(ESTADO[r.estado]||r.estado)+'</td></tr>'}).join("")+'</tbody></table></div>';
   },
   feeds:function(b){
     var c=dato("sistema/configuracion"),e=dato("sistema/ejecuciones");if(!c)return falla(b,"sistema/configuracion");
@@ -641,7 +641,7 @@ function pintaConfig(draft,ej){
   '<section class="sect"><h2>Alertas en Slack</h2><p>El panel muestra todo. Slack solo recibe lo que superes aquí. Se avisa una sola vez por hallazgo, después de cada descarga.</p><div class="fields">'+
     '<label class="sw"><input type="checkbox" id="al-on"'+dis+'> Enviar alertas a Slack</label>'+
     '<label class="fld">Canal<input type="text" id="al-ch" maxlength="80"'+dis+'></label>'+
-    '<label class="fld">Prioridad mínima<select id="al-pr"'+dis+'><option value="critica">Crítica</option><option value="alta">Alta</option><option value="media">Media</option></select></label>'+
+    '<label class="fld">Prioridad mínima<select id="al-pr"'+dis+'><option value="critica">Crítica</option><option value="alta">Alta</option><option value="media">Media</option><option value="baja">Baja (todas)</option></select></label>'+
     '<label class="fld">EPSS mínimo: <b id="al-epv" style="color:var(--fg)"></b><input type="range" id="al-ep" min="0" max="1" step="0.05"'+dis+'></label>'+
     '<label class="sw"><input type="checkbox" id="al-kev"'+dis+'> Solo vulnerabilidades en KEV</label>'+
     '<label class="sw"><input type="checkbox" id="al-rs"'+dis+'> Resumen diario</label>'+
