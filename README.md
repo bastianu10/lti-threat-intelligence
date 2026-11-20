@@ -8,7 +8,7 @@ Todos los comandos se corren desde la raíz del repo.
 | Carpeta | Qué contiene |
 |---|---|
 | `infra/` | `plantilla-aws.yaml`: todo el stack de AWS (CloudFormation) |
-| `scripts/` | Lo que se ejecuta para desplegar: `desplegar.sh`, `migrar.sh`, `subir_panel.sh` |
+| `scripts/` | `desplegar.sh`, `migrar.sh`, `subir_panel.sh` y `auditar_aws.sh` (inventario de solo lectura de la cuenta) |
 | `bd/` | SQL de la base: `esquema.sql`, `descubrimiento.sql`, `api.sql` (migraciones) y `consultas_demo.sql` |
 | `backend/api_panel/` | API del panel: `api_datos.py` (datos, alertas, resumen) y `api_sistema.py` (configuración) |
 | `backend/ingesta/` | Conectores de las fuentes y `normalizacion_lti.py` |
