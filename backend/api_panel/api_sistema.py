@@ -25,6 +25,7 @@ FLUJO = os.environ["FLUJO_ARN"]
 CMDB_ID = os.environ["CMDB_ID"]
 REGLAS = {"nvd": os.environ["REGLA_NVD"], "epss": os.environ["REGLA_EPSS"], "osv": os.environ["REGLA_OSV"]}
 REGLA_RESUMEN = os.environ["REGLA_RESUMEN"]
+DOC_CMDB = os.environ.get("DOC_CMDB", "lti-cmdb-frecuencia")
 MINUTO = {"nvd": 0, "epss": 15, "osv": 30}       # escalonado: las tres fuentes no arrancan el flujo al mismo minuto
 FREQS = ("1h", "6h", "12h", "24h", "7d")
 DOWS = ("MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN")
@@ -63,6 +64,15 @@ def leer_config():
     return cfg
 
 
+def _entero(v, permitidos=None, minimo=None, maximo=None):
+    """Entero estricto: rechaza bool (True == 1 en Python) y float (1.0 == 1)."""
+    if type(v) is not int:
+        return False
+    if permitidos is not None and v not in permitidos:
+        return False
+    return (minimo is None or v >= minimo) and (maximo is None or v <= maximo)
+
+
 def validar(c):
     """Devuelve la configuracion limpia o lanza ValueError con un mensaje para la persona."""
     out = json.loads(json.dumps(DEFECTO))
@@ -71,13 +81,13 @@ def validar(c):
         if f.get("freq") not in FREQS:
             raise ValueError(f"Frecuencia no valida en {k}")
         hora = f.get("hora", 12)
-        if not isinstance(hora, int) or not 0 <= hora <= 23:
+        if not _entero(hora, minimo=0, maximo=23):
             raise ValueError(f"Hora no valida en {k}")
         if f.get("dow", "MON") not in DOWS:
             raise ValueError(f"Dia no valido en {k}")
         out["feeds"][k] = {"freq": f["freq"], "hora": hora, "dow": f.get("dow", "MON"), "pausado": bool(f.get("pausado"))}
     iv = (c.get("cmdb") or {}).get("intervalo")
-    if iv not in (1, 3, 6, 12, 24):
+    if not _entero(iv, permitidos=(1, 3, 6, 12, 24)):
         raise ValueError("Intervalo del CMDB no valido")
     out["cmdb"] = {"intervalo": iv}
     a = c.get("alertas") or {}
@@ -89,7 +99,7 @@ def validar(c):
     if not isinstance(ep, (int, float)) or isinstance(ep, bool) or not 0 <= ep <= 1:
         raise ValueError("EPSS minimo debe estar entre 0 y 1")
     hr = a.get("hora", 9)
-    if not isinstance(hr, int) or not 0 <= hr <= 23:
+    if not _entero(hr, minimo=0, maximo=23):
         raise ValueError("Hora del resumen no valida")
     out["alertas"] = {"slack": bool(a.get("slack")), "canal": a["canal"], "minPrio": a["minPrio"], "epss": float(ep),
                       "soloKev": bool(a.get("soloKev")), "resumen": bool(a.get("resumen")), "hora": hr}
@@ -127,12 +137,12 @@ def aplicar(nueva, anterior):
         res["resumen"] = "error"
     if nueva["cmdb"]["intervalo"] != anterior["cmdb"]["intervalo"]:
         h = nueva["cmdb"]["intervalo"]
-        cal = "*-*-* 00:30:00" if h == 24 else f"*-*-* 00/{h}:30:00"
         try:
-            ssm.send_command(InstanceIds=[CMDB_ID], DocumentName="AWS-RunShellScript", Comment="Frecuencia del CMDB",
-                             Parameters={"commands": [
-                                 f"sed -i 's#^OnCalendar=.*#OnCalendar={cal}#' /etc/systemd/system/cmdb-sync.timer",
-                                 "systemctl daemon-reload", "systemctl restart cmdb-sync.timer"]})
+            # Documento SSM propio: el comando es fijo y "intervalo" solo admite 1, 3, 6, 12 o 24 (lo valida SSM).
+            # El rol ya no puede usar AWS-RunShellScript: aunque esta Lambda se comprometiera, no podria ejecutar
+            # comandos arbitrarios en el CMDB.
+            ssm.send_command(InstanceIds=[CMDB_ID], DocumentName=DOC_CMDB, Comment="Frecuencia del CMDB",
+                             Parameters={"intervalo": [str(h)]})
             res["cmdb"] = "aplicado"
         except Exception as e:
             print("ERROR cmdb", repr(e))
@@ -168,11 +178,16 @@ def ejecutar(cuerpo):
 def probar_slack():
     if not SLACK_ARN:
         raise ValueError("No hay una Lambda de Slack configurada")
-    r = lam.invoke(FunctionName=SLACK_ARN, Payload=json.dumps({
-        "title": "Prueba desde el panel de Threat Intelligence",
-        "body": "Si ves este mensaje, la conexion con Slack funciona."}).encode())
+    # Contrato del emisor v2 (lti-notificador-slack): {"mensajes": [...]} -> {"resultados": [...]}.
+    # "ids" solo se devuelve en el resultado; el emisor no toca la base.
+    r = lam.invoke(FunctionName=SLACK_ARN, Payload=json.dumps({"mensajes": [{
+        "ids": [1], "title": "Prueba desde el panel de Threat Intelligence",
+        "body": "Si ves este mensaje, la conexion con Slack funciona."}]}).encode())
+    if r.get("FunctionError"):
+        return {"ok": False, "estado": "error_del_emisor"}
     cuerpo = json.loads(r["Payload"].read() or b"{}")
-    return {"ok": bool(cuerpo.get("ok")), "estado": cuerpo.get("status", "desconocido")}
+    res = (cuerpo.get("resultados") or [{}])[0]
+    return {"ok": res.get("status") == "sent", "estado": res.get("status", "desconocido")}
 
 
 def handler(event, context):
