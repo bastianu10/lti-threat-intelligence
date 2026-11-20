@@ -1,0 +1,220 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "agente-entrada-v2",
+  "title": "Entrada del agente de priorizacion asistida (borrador para acordar con el equipo del motor)",
+  "description": "Un hallazgo por invocacion. Lo construye codigo determinista a partir de la MISMA fila SQL que evaluo el motor (v1.3.3, contexto_agente + cruce). Solo el codigo asigna estado_verificacion; el modelo nunca. Sin nombres, correos, credenciales ni endpoints.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "tenant_id", "corrida_id", "motivo_envio", "trazabilidad", "restricciones",
+               "hallazgo", "activo", "despliegue", "inventario", "componente", "vulnerabilidad",
+               "evaluacion_determinista", "comparacion_previa", "contexto_negocio", "evidencias"],
+  "properties": {
+    "schema_version": {"const": "agente-entrada-v2"},
+    "tenant_id": {"$ref": "#/$defs/uuid"},
+    "corrida_id": {"$ref": "#/$defs/uuid"},
+    "motivo_envio": {
+      "type": "object", "additionalProperties": false, "required": ["codigo", "politica_enrutamiento"],
+      "properties": {
+        "codigo": {"enum": ["PRIORIDAD_ALTA", "KEV", "APLICABILIDAD_AMBIGUA", "DEMOSTRACION_TODOS"]},
+        "politica_enrutamiento": {"type": "string", "pattern": "^[a-z0-9._-]{3,40}$"}
+      }
+    },
+    "trazabilidad": {
+      "type": "object", "additionalProperties": false,
+      "required": ["motor_version", "politica_sha256", "evaluacion_sha256", "snapshot_id"],
+      "properties": {
+        "motor_version": {"type": "string", "minLength": 3, "maxLength": 60},
+        "politica_version": {"type": ["string", "null"], "maxLength": 60},
+        "politica_sha256": {"$ref": "#/$defs/sha256"},
+        "evaluacion_sha256": {"$ref": "#/$defs/sha256", "description": "Debe cubrir la evaluacion Y el contexto_agente (condicion del contrato)."},
+        "snapshot_id": {"type": "string", "minLength": 3, "maxLength": 120}
+      }
+    },
+    "restricciones": {
+      "description": "Las aplica el guard por su cuenta; no dependen de lo que diga el modelo.",
+      "type": "object", "additionalProperties": false,
+      "required": ["accion_automatica_autorizada", "requiere_revision_humana", "no_persistir_en_evaluaciones"],
+      "properties": {
+        "accion_automatica_autorizada": {"const": false},
+        "requiere_revision_humana": {"type": "boolean"},
+        "no_persistir_en_evaluaciones": {"type": "boolean"}
+      }
+    },
+    "hallazgo": {
+      "type": "object", "additionalProperties": false, "required": ["hallazgo_id", "cve", "metodo_deteccion", "estado"],
+      "properties": {
+        "hallazgo_id": {"$ref": "#/$defs/uuid"},
+        "cve": {"type": "string", "pattern": "^CVE-[0-9]{4}-[0-9]{4,}$"},
+        "metodo_deteccion": {"enum": ["cruce_exacto", "cruce_ambiguo_agente"]},
+        "estado": {"enum": ["pendiente_aprobacion_dueno", "confirmado", "en_remediacion"]}
+      }
+    },
+    "activo": {
+      "type": "object", "additionalProperties": false,
+      "required": ["codigo", "tipo", "capa", "dominio_negocio", "criticidad", "clasificacion_informacion"],
+      "properties": {
+        "codigo": {"$ref": "#/$defs/codigo"},
+        "tipo": {"enum": ["servicio", "base_datos", "servidor", "contenedor", "funcion_serverless", "aplicacion_movil", "red", "saas", "otro"]},
+        "capa": {"enum": ["presentacion", "aplicacion", "datos", "infraestructura", "red", null]},
+        "dominio_negocio": {"type": "string", "minLength": 1, "maxLength": 60},
+        "criticidad": {"type": "integer", "minimum": 1, "maximum": 5},
+        "clasificacion_informacion": {"enum": ["publica", "interna", "confidencial", "restringida"]}
+      }
+    },
+    "despliegue": {
+      "type": "object", "additionalProperties": false, "required": ["ambiente", "rto_minutos", "rpo_minutos", "exposicion", "dependencias"],
+      "properties": {
+        "ambiente": {"enum": ["produccion", "pruebas", "escenarios"]},
+        "rto_minutos": {"type": ["integer", "null"], "minimum": 0},
+        "rpo_minutos": {"type": ["integer", "null"], "minimum": 0},
+        "exposicion": {"allOf": [{"$ref": "#/$defs/dato"},
+                                 {"properties": {"valor": {"enum": ["internet", "interna", "aislada", null]}}}]},
+        "dependencias": {"allOf": [{"$ref": "#/$defs/dato"},
+                                   {"properties": {"valor": {"type": ["array", "null"], "maxItems": 50, "items": {"$ref": "#/$defs/dependiente"}}}}]}
+      }
+    },
+    "inventario": {"allOf": [{"$ref": "#/$defs/dato"},
+                             {"properties": {"valor": {"enum": ["vigente_conciliado", "vigente_sin_conciliar", "no_vigente", null]}}}]},
+    "componente": {
+      "type": "object", "additionalProperties": false, "required": ["vendor", "producto", "version", "versiones_afectadas", "version_corregida"],
+      "properties": {
+        "vendor": {"type": "string", "minLength": 1, "maxLength": 100},
+        "producto": {"type": "string", "minLength": 1, "maxLength": 100},
+        "version": {"type": "string", "minLength": 1, "maxLength": 64},
+        "versiones_afectadas": {"type": ["string", "null"], "maxLength": 200},
+        "version_corregida": {"type": ["string", "null"], "maxLength": 64}
+      }
+    },
+    "vulnerabilidad": {
+      "type": "object", "additionalProperties": false, "required": ["descripcion_no_confiable", "cwe", "cvss", "kev", "epss"],
+      "properties": {
+        "descripcion_no_confiable": {"type": "string", "maxLength": 4000},
+        "cwe": {"type": "array", "maxItems": 10, "items": {"type": "string", "pattern": "^(CWE-[0-9]+|NVD-CWE-(Other|noinfo))$"}},
+        "cvss": {"allOf": [{"$ref": "#/$defs/dato"},
+                           {"properties": {"valor": {"type": ["array", "null"], "maxItems": 8, "items": {"$ref": "#/$defs/metrica_cvss"}}}}]},
+        "kev": {"allOf": [{"$ref": "#/$defs/dato"},
+                          {"properties": {"valor": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/kev"}]}}}],
+                "description": "valor null con estado distinto de 'verificado' NO significa 'fuera de KEV'."},
+        "epss": {"allOf": [{"$ref": "#/$defs/dato"},
+                           {"properties": {"valor": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/epss"}]}}}]}
+      }
+    },
+    "evaluacion_determinista": {
+      "type": "object", "additionalProperties": false,
+      "required": ["origen", "prioridad_base", "prioridad_piso", "prioridad_final", "prioridad_tipo", "estado_aplicabilidad",
+                   "puntaje_riesgo", "estado_puntaje", "riesgo_inherente", "riesgo_residual", "probabilidad_tamizaje",
+                   "impacto_tamizaje", "advertencias", "razones"],
+      "properties": {
+        "origen": {"enum": ["cruce", "filtro"]},
+        "prioridad_base": {"$ref": "#/$defs/prioridad"},
+        "prioridad_piso": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/prioridad"}]},
+        "prioridad_final": {"$ref": "#/$defs/prioridad"},
+        "prioridad_tipo": {"enum": ["investigacion", "tratamiento"]},
+        "estado_aplicabilidad": {"enum": ["confirmed", "candidate", "unknown"]},
+        "puntaje_riesgo": {"type": ["number", "null"], "minimum": 0, "maximum": 100},
+        "estado_puntaje": {"enum": ["calculado", "no_calculado"]},
+        "riesgo_inherente": {"enum": [1, 2, 3, 4, 6, 9, null]},
+        "riesgo_residual": {"enum": [1, 2, 3, 4, 6, 9, null]},
+        "probabilidad_tamizaje": {"enum": [1, 2, 3, null]},
+        "impacto_tamizaje": {"enum": [1, 2, 3, null]},
+        "advertencias": {"type": "array", "maxItems": 30, "uniqueItems": true, "items": {"$ref": "#/$defs/codigo_mayus"}},
+        "razones": {"type": "array", "maxItems": 30,
+                    "items": {"type": "object", "additionalProperties": false, "required": ["codigo", "explicacion"],
+                              "properties": {"codigo": {"$ref": "#/$defs/codigo_mayus"}, "explicacion": {"type": "string", "maxLength": 500}}}}
+      }
+    },
+    "comparacion_previa": {
+      "description": "El ANTES del dashboard (ultima evaluacion determinista del cruce).",
+      "type": "object", "additionalProperties": false, "required": ["disponible"],
+      "properties": {
+        "disponible": {"type": "boolean"},
+        "prioridad": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/prioridad"}]},
+        "puntaje_riesgo": {"type": ["number", "null"], "minimum": 0, "maximum": 100},
+        "fecha": {"type": ["string", "null"], "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"},
+        "origen": {"enum": ["cruce", "filtro", null]},
+        "motivo": {"type": ["string", "null"], "maxLength": 200}
+      }
+    },
+    "contexto_negocio": {
+      "description": "Modelo de negocio del tenant (S3 curada contexto/<tenant>.json), aprobado por el dueno. Los detalles se entregan como evidencias de tipo modelo_negocio.",
+      "type": "object", "additionalProperties": false, "required": ["version", "sha256", "aprobado"],
+      "properties": {
+        "version": {"type": "string", "minLength": 1, "maxLength": 40},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "aprobado": {"type": "boolean"}
+      }
+    },
+    "evidencias": {
+      "type": "array", "minItems": 1, "maxItems": 40,
+      "items": {
+        "type": "object", "additionalProperties": false, "required": ["id", "tipo", "descripcion"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^ev-[0-9]{2,3}$"},
+          "tipo": {"enum": ["cvss", "kev", "epss", "cwe", "activo", "despliegue", "exposicion", "dependencia", "inventario",
+                            "componente", "aplicabilidad", "regla_determinista", "comparacion_previa", "aviso_fabricante",
+                            "modelo_negocio", "precedente"]},
+          "descripcion": {"type": "string", "minLength": 1, "maxLength": 500},
+          "referencia": {"type": "string", "pattern": "^https://", "maxLength": 500}
+        }
+      }
+    }
+  },
+  "$defs": {
+    "uuid": {"type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "codigo": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{1,62}$"},
+    "codigo_mayus": {"type": "string", "pattern": "^[A-Z0-9_]{3,60}$"},
+    "prioridad": {"type": "integer", "minimum": 1, "maximum": 4},
+    "dato": {
+      "description": "Envoltorio de calidad del dato. Solo el codigo determinista asigna estado_verificacion.",
+      "type": "object", "additionalProperties": false, "required": ["valor", "estado_verificacion", "procedencia"],
+      "properties": {
+        "valor": {},
+        "estado_verificacion": {"enum": ["verificado", "declarado_sin_evidencia", "desconocido", "no_consultable"]},
+        "procedencia": {
+          "type": "object", "additionalProperties": false, "required": ["fuente"],
+          "properties": {
+            "fuente": {"type": "string", "minLength": 2, "maxLength": 60},
+            "referencia": {"type": "string", "pattern": "^https://", "maxLength": 500},
+            "fecha_verificacion": {"type": ["string", "null"], "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"},
+            "metodo": {"type": ["string", "null"], "maxLength": 60}
+          }
+        }
+      }
+    },
+    "dependiente": {
+      "type": "object", "additionalProperties": false, "required": ["activo_codigo", "criticidad", "ambiente", "tipo_dependencia"],
+      "properties": {
+        "activo_codigo": {"$ref": "#/$defs/codigo"},
+        "criticidad": {"type": "integer", "minimum": 1, "maximum": 5},
+        "ambiente": {"enum": ["produccion", "pruebas", "escenarios"]},
+        "tipo_dependencia": {"enum": ["ejecucion", "datos", "autenticacion", "red"]}
+      }
+    },
+    "metrica_cvss": {
+      "type": "object", "additionalProperties": false, "required": ["version", "vector", "puntaje_base", "fuente"],
+      "properties": {
+        "version": {"enum": ["2.0", "3.0", "3.1", "4.0"]},
+        "vector": {"type": "string", "maxLength": 200},
+        "puntaje_base": {"type": "number", "minimum": 0, "maximum": 10},
+        "fuente": {"type": "string", "maxLength": 30}
+      }
+    },
+    "kev": {
+      "type": "object", "additionalProperties": false, "required": ["en_kev", "fecha_limite", "uso_ransomware"],
+      "properties": {
+        "en_kev": {"type": "boolean"},
+        "fecha_limite": {"type": ["string", "null"], "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"},
+        "uso_ransomware": {"type": ["boolean", "null"]}
+      }
+    },
+    "epss": {
+      "type": "object", "additionalProperties": false, "required": ["puntaje", "percentil", "fecha"],
+      "properties": {
+        "puntaje": {"type": "number", "minimum": 0, "maximum": 1},
+        "percentil": {"type": "number", "minimum": 0, "maximum": 1},
+        "fecha": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"}
+      }
+    }
+  }
+}

@@ -44,6 +44,16 @@ Parameters:
       AMI de la CMDB. desplegar.sh pasa la de la instancia que ya corre. Antes era el parametro SSM
       "latest" de Amazon Linux 2023, que cambia solo cuando AWS publica una imagen nueva y provocaba el
       REEMPLAZO de la instancia (y la perdida de Neo4j) en cualquier despliegue.
+  VersionAgente:
+    Type: String
+    Default: a1
+    AllowedPattern: "[a-z0-9.-]{1,20}"
+    Description: Version del paquete lti-agente-<version>.zip en s3://<bucket curada>/artefactos/ (agente asesor).
+  ModoDemoAgente:
+    Type: String
+    Default: "true"
+    AllowedValues: ["true", "false"]
+    Description: true envia los casos al agente (demostracion); false aplica la politica de enrutamiento (P1/P2, KEV, ambiguos).
   IPPermitida:
     Type: String
     Description: Tu IP publica actual, en formato CIDR (ej. 187.190.12.34/32). Solo esa IP podra conectarse a RDS.
@@ -596,6 +606,7 @@ Resources:
                   - !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${NombreProyecto}-motor-contextual-shadow"
                   - !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${NombreProyecto}-notificador-rds"
                   - !Ref ArnSlack
+                  - !GetAtt FuncionAgenteAsesor.Arn
 
   FlujoDiario:
     Type: AWS::StepFunctions::StateMachine
@@ -614,7 +625,11 @@ Resources:
             "Metricas": {"Type":"Task","Resource":"arn:aws:states:::lambda:invoke","Parameters":{"FunctionName":"${ArnApiDatos}","Payload":{"accion":"snapshot"}},"TimeoutSeconds":60,"Retry":[{"ErrorEquals":["States.ALL"],"IntervalSeconds":20,"MaxAttempts":1}],"ResultPath":null,"Catch":[{"ErrorEquals":["States.ALL"],"ResultPath":null,"Next":"TipoCorrida"}],"Next":"TipoCorrida"},
             "VerificarCorridaCruce": {"Type":"Choice","Choices":[{"Variable":"$.cruce_result.corrida_id","StringEqualsPath":"$.carga_result.corrida_id","Next":"MotorContextual"}],"Default":"ErrorIntegracion"},
             "MotorContextual": {"Type":"Task","Resource":"arn:aws:states:::lambda:invoke","Parameters":{"FunctionName":"${ArnMotor}","Payload":{"corrida_id.$":"$.carga_result.corrida_id"}},"ResultSelector":{"status.$":"$.Payload.status","corrida_id.$":"$.Payload.corrida_id","evaluados.$":"$.Payload.evaluados","errores.$":"$.Payload.errores","listo_para_agente.$":"$.Payload.listo_para_agente","archivo_sombra.$":"$.Payload.archivo_sombra"},"ResultPath":"$.motor_result","Next":"VerificarMotor","Catch":[{"ErrorEquals":["States.ALL"],"ResultPath":"$.motor_error","Next":"Metricas"}]},
-            "VerificarMotor": {"Type":"Choice","Choices":[{"And":[{"Variable":"$.motor_result.status","StringEquals":"ok"},{"Variable":"$.motor_result.errores","NumericEquals":0},{"Variable":"$.motor_result.corrida_id","StringEqualsPath":"$.carga_result.corrida_id"}],"Next":"Metricas"}],"Default":"MotorShadowNoListo"},
+            "VerificarMotor": {"Type":"Choice","Choices":[{"And":[{"Variable":"$.motor_result.status","StringEquals":"ok"},{"Variable":"$.motor_result.errores","NumericEquals":0},{"Variable":"$.motor_result.corrida_id","StringEqualsPath":"$.carga_result.corrida_id"}],"Next":"HayCasosAgente"}],"Default":"MotorShadowNoListo"},
+            "HayCasosAgente": {"Type":"Choice","Comment":"Agente asesor (priorizacion asistida): solo con archivo del motor integro y listo.","Choices":[{"And":[{"Variable":"$.motor_result.listo_para_agente","BooleanEquals":true},{"Variable":"$.motor_result.archivo_sombra","IsNull":false}],"Next":"AgenteListar"}],"Default":"Metricas"},
+            "AgenteListar": {"Type":"Task","Resource":"arn:aws:states:::lambda:invoke","Parameters":{"FunctionName":"${ArnAgente}","Payload":{"accion":"listar","corrida_id.$":"$.carga_result.corrida_id","archivo_sombra.$":"$.motor_result.archivo_sombra","modo_demo":${ModoDemoAgente}}},"TimeoutSeconds":60,"ResultSelector":{"casos.$":"$.Payload.casos","total.$":"$.Payload.total","omitidos.$":"$.Payload.omitidos"},"ResultPath":"$.agente_lista","Next":"AgenteAsesorar","Catch":[{"ErrorEquals":["States.ALL"],"ResultPath":"$.agente_error","Next":"AgenteNoDisponible"}]},
+            "AgenteAsesorar": {"Type":"Map","Comment":"Un hallazgo por invocacion (sin contaminacion cruzada). Un fallo por caso conserva la evaluacion determinista.","ItemsPath":"$.agente_lista.casos","MaxConcurrency":5,"ItemSelector":{"accion":"asesorar","hallazgo_id.$":"$$.Map.Item.Value","corrida_id.$":"$.carga_result.corrida_id","archivo_sombra.$":"$.motor_result.archivo_sombra","modo_demo":${ModoDemoAgente}},"ItemProcessor":{"ProcessorConfig":{"Mode":"INLINE"},"StartAt":"AsesorarCaso","States":{"AsesorarCaso":{"Type":"Task","Resource":"arn:aws:states:::lambda:invoke","Parameters":{"FunctionName":"${ArnAgente}","Payload.$":"$"},"TimeoutSeconds":150,"Retry":[{"ErrorEquals":["Lambda.TooManyRequestsException","Lambda.ServiceException","Lambda.SdkClientException"],"IntervalSeconds":10,"MaxAttempts":2,"BackoffRate":2}],"OutputPath":"$.Payload","Catch":[{"ErrorEquals":["States.ALL"],"ResultPath":"$.error","Next":"CasoNoAsesorado"}],"End":true},"CasoNoAsesorado":{"Type":"Pass","Parameters":{"hallazgo_id.$":"$.hallazgo_id","estado":"sin_asesoria","motivo":"error_invocacion"},"End":true}}},"ResultPath":"$.agente_resultados","Next":"Metricas","Catch":[{"ErrorEquals":["States.ALL"],"ResultPath":"$.agente_error","Next":"AgenteNoDisponible"}]},
+            "AgenteNoDisponible": {"Type":"Pass","Result":{"estado":"parcial","motivo":"Agente no disponible: se conserva la evaluacion determinista"},"ResultPath":"$.agente_advertencia","Next":"Metricas"},
             "ErrorIntegracion": {"Type":"Fail","Error":"CorridaOEvaluacionInconsistente","Cause":"No coincide la corrida o fallo la evaluacion determinista"},
             "MotorShadowNoListo": {"Type":"Pass","Result":{"estado":"requiere_revision","motivo":"Resultado del motor no conforme"},"ResultPath":"$.motor_advertencia","Next":"Metricas"},
             "RutaResumen": {"Type":"Choice","Choices":[{"And":[{"Variable":"$.resumen","IsPresent":true},{"Variable":"$.resumen","BooleanEquals":true}],"Next":"Metricas"}],"Default":"Normalizacion"},
@@ -641,6 +656,7 @@ Resources:
           ArnMotor: !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${NombreProyecto}-motor-contextual-shadow"
           ArnNotifRds: !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${NombreProyecto}-notificador-rds"
           ArnNotifSlack: !Ref ArnSlack
+          ArnAgente: !GetAtt FuncionAgenteAsesor.Arn
 
   RolEventosFlujo:
     Type: AWS::IAM::Role
@@ -1245,6 +1261,116 @@ Resources:
               StringEquals:
                 AWS:SourceArn: !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${DistribucionPanel}"
 
+  # ------------------------------------------------------------------ Agente asesor (priorizacion asistida)
+  # La IA ASESORA, el motor CALCULA y el dueno APRUEBA. Fuera de la VPC y sin credenciales de base.
+  GuardrailAgente:
+    Type: AWS::Bedrock::Guardrail
+    Properties:
+      Name: !Sub "${NombreProyecto}-agente-asesor"
+      Description: Ataques de prompt en textos de terceros (feeds y precedentes) y PII/credenciales en la salida.
+      BlockedInputMessaging: Entrada bloqueada por el guardrail del agente asesor.
+      BlockedOutputsMessaging: Salida bloqueada por el guardrail del agente asesor.
+      ContentPolicyConfig:
+        FiltersConfig:
+          - Type: PROMPT_ATTACK
+            InputStrength: HIGH
+            OutputStrength: NONE
+      SensitiveInformationPolicyConfig:
+        PiiEntitiesConfig:
+          - {Type: EMAIL, Action: BLOCK}
+          - {Type: IP_ADDRESS, Action: BLOCK}
+          - {Type: AWS_ACCESS_KEY, Action: BLOCK}
+          - {Type: AWS_SECRET_KEY, Action: BLOCK}
+          - {Type: PASSWORD, Action: BLOCK}
+          - {Type: CREDIT_DEBIT_CARD_NUMBER, Action: BLOCK}
+      Tags:
+        - Key: activo
+          Value: guardrail-agente-lti
+
+  GuardrailAgenteVersion:
+    Type: AWS::Bedrock::GuardrailVersion
+    Properties:
+      GuardrailIdentifier: !GetAtt GuardrailAgente.GuardrailId
+      Description: v1 - prompt attack HIGH (entrada) + PII/credenciales (salida)
+
+  LogAgenteAsesor:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${NombreProyecto}-agente-asesor"
+      RetentionInDays: 30
+
+  RolAgenteAsesor:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: agente-asesor-minimo
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: Logs
+                Effect: Allow
+                Action: [logs:CreateLogStream, logs:PutLogEvents]
+                Resource: !Sub "${LogAgenteAsesor.Arn}"
+              - Sid: LeerSalidaDelMotor
+                Effect: Allow
+                Action: s3:GetObject
+                Resource: !Sub "arn:aws:s3:::${NombreProyecto}-motor-shadow-${AWS::AccountId}-${AWS::Region}/risk-engine-shadow/*"
+                Condition:
+                  StringEquals:
+                    s3:ResourceAccount: !Ref AWS::AccountId
+              - Sid: LeerModeloDeNegocio
+                Effect: Allow
+                Action: s3:GetObject
+                Resource: !Sub "${BucketCurada.Arn}/contexto/*"
+              - Sid: EscribirAsesoria
+                Effect: Allow
+                Action: s3:PutObject
+                Resource: !Sub "${BucketCurada.Arn}/agente/*"
+              - Sid: InvocarModelo
+                Effect: Allow
+                Action: bedrock:InvokeModel
+                Resource:
+                  - !Sub "arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/us.anthropic.claude-sonnet-4-6"
+                  - !Sub "arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/us.anthropic.claude-haiku-4-5-20251001-v1:0"
+                  - "arn:aws:bedrock:us-*::foundation-model/anthropic.claude-sonnet-4-6*"
+                  - "arn:aws:bedrock:us-*::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0"
+              - Sid: AplicarGuardrail
+                Effect: Allow
+                Action: bedrock:ApplyGuardrail
+                Resource: !GetAtt GuardrailAgente.GuardrailArn
+
+  FuncionAgenteAsesor:
+    Type: AWS::Lambda::Function
+    DependsOn: LogAgenteAsesor
+    Properties:
+      FunctionName: !Sub "${NombreProyecto}-agente-asesor"
+      Description: Agente de priorizacion asistida (Bedrock + Guardrail + output guard v2). Sin VPC ni BD.
+      Runtime: python3.12
+      Handler: agente_asesor.handler
+      Role: !GetAtt RolAgenteAsesor.Arn
+      Timeout: 120
+      MemorySize: 256
+      Code:
+        S3Bucket: !Ref BucketCurada
+        S3Key: !Sub "artefactos/lti-agente-${VersionAgente}.zip"
+      Environment:
+        Variables:
+          TENANT_ID: 11111111-1111-1111-1111-111111111111
+          BUCKET_MOTOR: !Sub "${NombreProyecto}-motor-shadow-${AWS::AccountId}-${AWS::Region}"
+          BUCKET_CURADA: !Ref BucketCurada
+          MODELO_ID: us.anthropic.claude-sonnet-4-6
+          GUARDRAIL_ID: !GetAtt GuardrailAgente.GuardrailId
+          GUARDRAIL_VERSION: !GetAtt GuardrailAgenteVersion.Version
+          MAX_TOKENS: "6000"
+          PROMPT_ARCHIVO: sistema_v2_4.md
+
   PresupuestoBajo:
     Type: AWS::Budgets::Budget
     Properties:
@@ -1286,6 +1412,10 @@ Resources:
               Address: !Ref EmailPresupuesto
 
 Outputs:
+  FuncionAgenteAsesorNombre:
+    Value: !Ref FuncionAgenteAsesor
+  GuardrailAgenteId:
+    Value: !GetAtt GuardrailAgente.GuardrailId
   BucketRawNombre:
     Value: !Ref BucketRaw
   BucketCuradaNombre:

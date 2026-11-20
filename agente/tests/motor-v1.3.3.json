@@ -1,0 +1,2476 @@
+{
+ "assessed_at": "2026-11-19T02:08:10.116446+00:00",
+ "corrida_id": "2f9ed42d-ae30-4daf-8bb6-ff6eaed7bf6f",
+ "cursor_id": null,
+ "errores": [],
+ "evaluaciones": [
+  {
+   "comparacion_legacy": {
+    "nota": "Escalas distintas: no convertir ni sobrescribir puntaje_riesgo 0-100.",
+    "prioridad_nueva": "P1",
+    "prioridad_previa": null,
+    "puntaje_previo_0_100": null,
+    "riesgo_residual_1_9": null
+   },
+   "dependencias": {
+    "dependientes_criticos": null,
+    "dependientes_directos": null,
+    "estado": "no_verificado",
+    "nota": "Relaciones no consultadas por falta de permisos. No afirmar que hay cero dependencias.",
+    "numero_dependientes": null,
+    "requiere_validacion_propagacion": true
+   },
+   "envio_agente": {
+    "accion_permitida": "investigar_evidencia",
+    "advertencias": [
+     "CVSS_NO_VERIFICADO_DIARIAMENTE",
+     "ESTADO_DESPLIEGUE_DESCONOCIDO",
+     "ESTADO_NVD_NO_VALIDADO",
+     "EXPOSICION_SIN_EVIDENCIA",
+     "IMPACTO_CIA_NO_ESPECIFICADO",
+     "INVENTARIO_NO_VIGENTE",
+     "INVENTARIO_SIN_CONCILIAR",
+     "KEV_NO_VERIFICADO",
+     "PROBABILIDAD_ANUAL_SIN_APROBACION",
+     "TOLERANCIA_NO_APROBADA"
+    ],
+    "asset_code": "auth-oidc",
+    "case_id": "25cab4bf-0cb7-4085-a22c-34dd8649b22b",
+    "component_id": "1989f5e1-00a1-4f4b-bde3-366192afe68a",
+    "cve": "CVE-2026-111497",
+    "dependencias": {
+     "dependientes_criticos": null,
+     "dependientes_directos": null,
+     "estado": "no_verificado",
+     "nota": "Relaciones no consultadas por falta de permisos. No afirmar que hay cero dependencias.",
+     "numero_dependientes": null,
+     "requiere_validacion_propagacion": true
+    },
+    "estado_aplicabilidad": "candidate",
+    "estado_evaluacion": "verification_required",
+    "evaluacion_sha256": "3265df0ddb05b480845e6c84138c3f7ad5a6f9c581d6dc7d0eeecc92ee422789",
+    "evidencia_hash": "3a43497645e9df0c6681218c98c107567507cdbd72e74db806fd4f82b885d600",
+    "motor": "risk-engine-v1.3.0-aws-rds-unified",
+    "politica_sha256": "701634e2c3818dcf54072cd960d1ffde41e0e317334f9d0a31bd3d030233232a",
+    "prioridad": "P1",
+    "prioridad_tipo": "investigacion",
+    "reglas": [
+     {
+      "codigo": "HORIZONTE_DISTINTO_EPSS",
+      "evidencias": [],
+      "explicacion": "Probabilidad P×I del curso: horizonte 12 meses; EPSS solo es señal de explotación poblacional a 30 días. El cálculo sin probabilidad anual aprobada es tamizaje provisional."
+     },
+     {
+      "codigo": "APLICABILIDAD",
+      "evidencias": [],
+      "explicacion": "Estado de aplicabilidad: candidate (método: legacy_candidate)."
+     },
+     {
+      "codigo": "VERIFICACION_PREVIA",
+      "evidencias": [],
+      "explicacion": "No se calcula riesgo confirmado sin demostrar aplicabilidad. La prioridad indicada es de investigación, no de remediación."
+     }
+    ],
+    "restricciones": {
+     "no_aceptar_riesgo": true,
+     "no_cambiar_prioridad": true,
+     "no_ejecutar_remediacion": true,
+     "no_inventar_aplicabilidad": true,
+     "salida_requiere_validacion": true
+    },
+    "riesgo_inherente": null,
+    "riesgo_residual": null,
+    "schema_version": "bedrock-triage-v1.3",
+    "severidad_tecnica": {
+     "score": 9.2,
+     "source": "nvd",
+     "vector": "CVSS:4.0/AV:N/AC:L/AT:P/PR:N/UI:N/VC:H/VI:H/VA:H/SC:N/SI:N/SA:N/E:X/CR:X/IR:X/AR:X/MAV:X/MAC:X/MAT:X/MPR:X/MUI:X/MVC:X/MVI:X/MVA:X/MSC:X/MSI:X/MSA:X/S:X/AU:X/R:X/V:X/RE:X/U:X",
+     "version": "4.0"
+    },
+    "tenant_id": "11111111-1111-1111-1111-111111111111"
+   },
+   "no_persistir_en_evaluaciones_v3": true,
+   "resultado": {
+    "accion_automatica_autorizada": false,
+    "advertencias": [
+     "CVSS_NO_VERIFICADO_DIARIAMENTE",
+     "ESTADO_DESPLIEGUE_DESCONOCIDO",
+     "ESTADO_NVD_NO_VALIDADO",
+     "EXPOSICION_SIN_EVIDENCIA",
+     "IMPACTO_CIA_NO_ESPECIFICADO",
+     "INVENTARIO_NO_VIGENTE",
+     "INVENTARIO_SIN_CONCILIAR",
+     "KEV_NO_VERIFICADO",
+     "PROBABILIDAD_ANUAL_SIN_APROBACION",
+     "TOLERANCIA_NO_APROBADA"
+    ],
+    "asset_code": "auth-oidc",
+    "case_id": "25cab4bf-0cb7-4085-a22c-34dd8649b22b",
+    "component_id": "1989f5e1-00a1-4f4b-bde3-366192afe68a",
+    "controles_descontados": [],
+    "cve": "CVE-2026-111497",
+    "dimensiones_cia_afectadas": [],
+    "entrada_sha256": "3a43497645e9df0c6681218c98c107567507cdbd72e74db806fd4f82b885d600",
+    "estado_aplicabilidad": "candidate",
+    "estado_evaluacion": "verification_required",
+    "evaluacion_sha256": "3265df0ddb05b480845e6c84138c3f7ad5a6f9c581d6dc7d0eeecc92ee422789",
+    "evaluado_en": "2026-11-19T02:08:10.116446+00:00",
+    "fuente": {
+     "manifest_sha256": "b96e0fbdb11ba035cd18f70bc3106050e87bd9735cf19e91d00c3194bb868f0a",
+     "snapshot": "curada-v3/2026/11/17/120044/manifest.json"
+    },
+    "metricas_cvss_disponibles": [
+     {
+      "score": 9.2,
+      "source": "nvd",
+      "vector": "CVSS:4.0/AV:N/AC:L/AT:P/PR:N/UI:N/VC:H/VI:H/VA:H/SC:N/SI:N/SA:N/E:X/CR:X/IR:X/AR:X/MAV:X/MAC:X/MAT:X/MPR:X/MUI:X/MVC:X/MVI:X/MVA:X/MSC:X/MSI:X/MSA:X/S:X/AU:X/R:X/V:X/RE:X/U:X",
+      "version": "4.0"
+     },
+     {
+      "score": 9.8,
+      "source": "nvd",
+      "vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+      "version": "3.1"
+     }
+    ],
+    "motor": "risk-engine-v1.3.0-aws-rds-unified",
+    "politica_sha256": "701634e2c3818dcf54072cd960d1ffde41e0e317334f9d0a31bd3d030233232a",
+    "prioridad_operativa": "P1",
+    "prioridad_tipo": "investigacion",
+    "razones": [
+     {
+      "evidencias": [],
+      "explicacion": "Probabilidad P×I del curso: horizonte 12 meses; EPSS solo es señal de explotación poblacional a 30 días. El cálculo sin probabilidad anual aprobada es tamizaje provisional.",
+      "regla": "HORIZONTE_DISTINTO_EPSS"
+     },
+     {
+      "evidencias": [],
+      "explicacion": "Estado de aplicabilidad: candidate (método: legacy_candidate).",
+      "regla": "APLICABILIDAD"
+     },
+     {
+      "evidencias": [],
+      "explicacion": "No se calcula riesgo confirmado sin demostrar aplicabilidad. La prioridad indicada es de investigación, no de remediación.",
+      "regla": "VERIFICACION_PREVIA"
+     }
+    ],
+    "requiere_revision_humana": true,
+    "riesgo_inherente": null,
+    "riesgo_residual": null,
+    "severidad_tecnica": {
+     "score": 9.2,
+     "source": "nvd",
+     "vector": "CVSS:4.0/AV:N/AC:L/AT:P/PR:N/UI:N/VC:H/VI:H/VA:H/SC:N/SI:N/SA:N/E:X/CR:X/IR:X/AR:X/MAV:X/MAC:X/MAT:X/MPR:X/MUI:X/MVC:X/MVI:X/MVA:X/MSC:X/MSI:X/MSA:X/S:X/AU:X/R:X/V:X/RE:X/U:X",
+     "version": "4.0"
+    },
+    "tenant_id": "11111111-1111-1111-1111-111111111111"
+   },
+   "contexto_agente": {
+    "metodo_deteccion": "cruce_exacto",
+    "hallazgo_estado": "pendiente_aprobacion_dueno",
+    "activo_tipo": "servicio",
+    "capa": "aplicacion",
+    "dominio_negocio": "ti",
+    "criticidad": 5,
+    "clasificacion_informacion": "restringida",
+    "ambiente": "produccion",
+    "expuesto_internet": true,
+    "rto_minutes": 30,
+    "rpo_minutes": 5,
+    "vendor": "envoyproxy",
+    "producto_nombre": "envoy",
+    "componente_version": "1.30.2",
+    "descripcion": "Improper authentication in the JWT authentication filter allows a remote unauthenticated attacker to bypass token validation when a specific provider configuration is present.",
+    "cwe": [
+     "CWE-287"
+    ],
+    "en_kev": true,
+    "kev_fecha_limite": "2026-12-09",
+    "uso_ransomware": false,
+    "epss": 0.0123,
+    "epss_percentil": 0.871,
+    "epss_fecha": "2026-11-18",
+    "dependientes_directos": [
+     {
+      "activo_codigo": "trip-service",
+      "criticidad": 4,
+      "ambiente": "produccion",
+      "tipo_dependencia": "autenticacion"
+     },
+     {
+      "activo_codigo": "lock-orchestrator",
+      "criticidad": 5,
+      "ambiente": "produccion",
+      "tipo_dependencia": "autenticacion"
+     },
+     {
+      "activo_codigo": "notifications",
+      "criticidad": 3,
+      "ambiente": "produccion",
+      "tipo_dependencia": "autenticacion"
+     }
+    ]
+   },
+   "cruce": {
+    "prioridad_base": 1,
+    "prioridad_piso": 1,
+    "prioridad_final": 1,
+    "puntaje_riesgo": 100.0
+   },
+   "evidencia_autenticada": {
+    "aplicabilidad": [],
+    "exposicion": null
+   }
+  },
+  {
+   "comparacion_legacy": {
+    "nota": "Escalas distintas: no convertir ni sobrescribir puntaje_riesgo 0-100.",
+    "prioridad_nueva": "P3",
+    "prioridad_previa": null,
+    "puntaje_previo_0_100": null,
+    "riesgo_residual_1_9": null
+   },
+   "dependencias": {
+    "dependientes_criticos": null,
+    "dependientes_directos": null,
+    "estado": "no_verificado",
+    "nota": "Relaciones no consultadas por falta de permisos. No afirmar que hay cero dependencias.",
+    "numero_dependientes": null,
+    "requiere_validacion_propagacion": true
+   },
+   "envio_agente": {
+    "accion_permitida": "investigar_evidencia",
+    "advertencias": [
+     "CVSS_NO_VERIFICADO_DIARIAMENTE",
+     "ESTADO_DESPLIEGUE_DESCONOCIDO",
+     "ESTADO_NVD_NO_VALIDADO",
+     "EXPOSICION_SIN_EVIDENCIA",
+     "IMPACTO_CIA_NO_ESPECIFICADO",
+     "INVENTARIO_NO_VIGENTE",
+     "INVENTARIO_SIN_CONCILIAR",
+     "KEV_NO_VERIFICADO",
+     "PROBABILIDAD_ANUAL_SIN_APROBACION",
+     "TOLERANCIA_NO_APROBADA"
+    ],
+    "asset_code": "lock-orchestrator",
+    "case_id": "39836575-823b-4f2a-93ac-2734cb781d24",
+    "component_id": "3f0bb2b2-0f44-4264-a37c-7d55b637fe47",
+    "cve": "CVE-2026-39819",
+    "dependencias": {
+     "dependientes_criticos": null,
+     "dependientes_directos": null,
+     "estado": "no_verificado",
+     "nota": "Relaciones no consultadas por falta de permisos. No afirmar que hay cero dependencias.",
+     "numero_dependientes": null,
+     "requiere_validacion_propagacion": true
+    },
+    "estado_aplicabilidad": "candidate",
+    "estado_evaluacion": "verification_required",
+    "evaluacion_sha256": "9a2d237313eacc432a74603411ebdaca97679cb5041fabb955946defd928e009",
+    "evidencia_hash": "85bc005f63c8318c0640a7e6aa387ba3cee9639a5ccaa919dc203d1d63d9f048",
+    "motor": "risk-engine-v1.3.0-aws-rds-unified",
+    "politica_sha256": "701634e2c3818dcf54072cd960d1ffde41e0e317334f9d0a31bd3d030233232a",
+    "prioridad": "P3",
+    "prioridad_tipo": "investigacion",
+    "reglas": [
+     {
+      "codigo": "HORIZONTE_DISTINTO_EPSS",
+      "evidencias": [],
+      "explicacion": "Probabilidad P×I del curso: horizonte 12 meses; EPSS solo es señal de explotación poblacional a 30 días. El cálculo sin probabilidad anual aprobada es tamizaje provisional."
+     },
+     {
+      "codigo": "APLICABILIDAD",
+      "evidencias": [],
+      "explicacion": "Estado de aplicabilidad: candidate (método: legacy_candidate)."
+     },
+     {
+      "codigo": "VERIFICACION_PREVIA",
+      "evidencias": [],
+      "explicacion": "No se calcula riesgo confirmado sin demostrar aplicabilidad. La prioridad indicada es de investigación, no de remediación."
+     }
+    ],
+    "restricciones": {
+     "no_aceptar_riesgo": true,
+     "no_cambiar_prioridad": true,
+     "no_ejecutar_remediacion": true,
+     "no_inventar_aplicabilidad": true,
+     "salida_requiere_validacion": true
+    },
+    "riesgo_inherente": null,
+    "riesgo_residual": null,
+    "schema_version": "bedrock-triage-v1.3",
+    "severidad_tecnica": {
+     "score": 5.3,
+     "source": "nvd",
+     "vector": "CVSS:3.1/AV:L/AC:H/PR:L/UI:N/S:U/C:L/I:H/A:N",
+     "version": "3.1"
+    },
+    "tenant_id": "11111111-1111-1111-1111-111111111111"
+   },
+   "no_persistir_en_evaluaciones_v3": true,
+   "resultado": {
+    "accion_automatica_autorizada": false,
+    "advertencias": [
+     "CVSS_NO_VERIFICADO_DIARIAMENTE",
+     "ESTADO_DESPLIEGUE_DESCONOCIDO",
+     "ESTADO_NVD_NO_VALIDADO",
+     "EXPOSICION_SIN_EVIDENCIA",
+     "IMPACTO_CIA_NO_ESPECIFICADO",
+     "INVENTARIO_NO_VIGENTE",
+     "INVENTARIO_SIN_CONCILIAR",
+     "KEV_NO_VERIFICADO",
+     "PROBABILIDAD_ANUAL_SIN_APROBACION",
+     "TOLERANCIA_NO_APROBADA"
+    ],
+    "asset_code": "lock-orchestrator",
+    "case_id": "39836575-823b-4f2a-93ac-2734cb781d24",
+    "component_id": "3f0bb2b2-0f44-4264-a37c-7d55b637fe47",
+    "controles_descontados": [],
+    "cve": "CVE-2026-39819",
+    "dimensiones_cia_afectadas": [],
+    "entrada_sha256": "85bc005f63c8318c0640a7e6aa387ba3cee9639a5ccaa919dc203d1d63d9f048",
+    "estado_aplicabilidad": "candidate",
+    "estado_evaluacion": "verification_required",
+    "evaluacion_sha256": "9a2d237313eacc432a74603411ebdaca97679cb5041fabb955946defd928e009",
+    "evaluado_en": "2026-11-19T02:08:10.116446+00:00",
+    "fuente": {
+     "manifest_sha256": "b96e0fbdb11ba035cd18f70bc3106050e87bd9735cf19e91d00c3194bb868f0a",
+     "snapshot": "curada-v3/2026/11/17/120044/manifest.json"
+    },
+    "metricas_cvss_disponibles": [
+     {
+      "score": 5.3,
+      "source": "nvd",
+      "vector": "CVSS:3.1/AV:L/AC:H/PR:L/UI:N/S:U/C:L/I:H/A:N",
+      "version": "3.1"
+     }
+    ],
+    "motor": "risk-engine-v1.3.0-aws-rds-unified",
+    "politica_sha256": "701634e2c3818dcf54072cd960d1ffde41e0e317334f9d0a31bd3d030233232a",
+    "prioridad_operativa": "P3",
+    "prioridad_tipo": "investigacion",
+    "razones": [
+     {
+      "evidencias": [],
+      "explicacion": "Probabilidad P×I del curso: horizonte 12 meses; EPSS solo es señal de explotación poblacional a 30 días. El cálculo sin probabilidad anual aprobada es tamizaje provisional.",
+      "regla": "HORIZONTE_DISTINTO_EPSS"
+     },
+     {
+      "evidencias": [],
+      "explicacion": "Estado de aplicabilidad: candidate (método: legacy_candidate).",
+      "regla": "APLICABILIDAD"
+     },
+     {
+      "evidencias": [],
+      "explicacion": "No se calcula riesgo confirmado sin demostrar aplicabilidad. La prioridad indicada es de investigación, no de remediación.",
+      "regla": "VERIFICACION_PREVIA"
+     }
+    ],
+    "requiere_revision_humana": true,
+    "riesgo_inherente": null,
+    "riesgo_residual": null,
+    "severidad_tecnica": {
+     "score": 5.3,
+     "source": "nvd",
+     "vector": "CVSS:3.1/AV:L/AC:H/PR:L/UI:N/S:U/C:L/I:H/A:N",
+     "version": "3.1"
+    },
+    "tenant_id": "11111111-1111-1111-1111-111111111111"
+   },
+   "contexto_agente": {
+    "metodo_deteccion": "cruce_exacto",
+    "hallazgo_estado": "pendiente_aprobacion_dueno",
+    "activo_tipo": "servicio",
+    "capa": "aplicacion",
+    "dominio_negocio": "ti",
+    "criticidad": 5,
+    "clasificacion_informacion": "confidencial",
+    "ambiente": "produccion",
+    "expuesto_internet": false,
+    "rto_minutes": 15,
+    "rpo_minutes": 5,
+    "vendor": "golang",
+    "producto_nombre": "go",
+    "componente_version": "1.22",
+    "descripcion": "A local user with low privileges may tamper with temporary files created by the runtime under a race condition.",
+    "cwe": [
+     "CWE-367"
+    ],
+    "en_kev": false,
+    "kev_fecha_limite": null,
+    "uso_ransomware": null,
+    "epss": 0.0009,
+    "epss_percentil": 0.25,
+    "epss_fecha": "2026-11-18",
+    "dependientes_directos": [
+     {
+      "activo_codigo": "trip-service",
+      "criticidad": 4,
+      "ambiente": "produccion",
+      "tipo_dependencia": "ejecucion"
+     }
+    ]
+   },
+   "cruce": {
+    "prioridad_base": 3,
+    "prioridad_piso": null,
+    "prioridad_final": 3,
+    "puntaje_riesgo": 40.0
+   },
+   "evidencia_autenticada": {
+    "aplicabilidad": [],
+    "exposicion": null
+   }
+  },
+  {
+   "comparacion_legacy": {
+    "nota": "Escalas distintas: no convertir ni sobrescribir puntaje_riesgo 0-100.",
+    "prioridad_nueva": "P3",
+    "prioridad_previa": null,
+    "puntaje_previo_0_100": null,
+    "riesgo_residual_1_9": null
+   },
+   "dependencias": {
+    "dependientes_criticos": null,
+    "dependientes_directos": null,
+    "estado": "no_verificado",
+    "nota": "Relaciones no consultadas por falta de permisos. No afirmar que hay cero dependencias.",
+    "numero_dependientes": null,
+    "requiere_validacion_propagacion": true
+   },
+   "envio_agente": {
+    "accion_permitida": "investigar_evidencia",
+    "advertencias": [
+     "CVSS_NO_VERIFICADO_DIARIAMENTE",
+     "ESTADO_DESPLIEGUE_DESCONOCIDO",
+     "ESTADO_NVD_NO_VALIDADO",
+     "EXPOSICION_SIN_EVIDENCIA",
+     "IMPACTO_CIA_NO_ESPECIFICADO",
+     "INVENTARIO_NO_VIGENTE",
+     "INVENTARIO_SIN_CONCILIAR",
+     "KEV_NO_VERIFICADO",
+     "PROBABILIDAD_ANUAL_SIN_APROBACION",
+     "TOLERANCIA_NO_APROBADA"
+    ],
+    "asset_code": "trip-service",
+    "case_id": "53616cce-e721-4f80-a4e1-0df03349b980",
+    "component_id": "62bed638-e79e-43c9-bb05-dd1bc77c1290",
+    "cve": "CVE-2026-39819",
+    "dependencias": {
+     "dependientes_criticos": null,
+     "dependientes_directos": null,
+     "estado": "no_verificado",
+     "nota": "Relaciones no consultadas por falta de permisos. No afirmar que hay cero dependencias.",
+     "numero_dependientes": null,
+     "requiere_validacion_propagacion": true
+    },
+    "estado_aplicabilidad": "candidate",
+    "estado_evaluacion": "verification_required",
+    "evaluacion_sha256": "2b1f2234f107a0d3cc795774938f97cb95ce4e5503dbbbbee35f4aeb48b993a8",
+    "evidencia_hash": "4bb7c2160fe223b12985717804f972db3a184c3a0e3d68ff6ded2d2d79ff38cb",
+    "motor": "risk-engine-v1.3.0-aws-rds-unified",
+    "politica_sha256": "701634e2c3818dcf54072cd960d1ffde41e0e317334f9d0a31bd3d030233232a",
+    "prioridad": "P3",
+    "prioridad_tipo": "investigacion",
+    "reglas": [
+     {
+      "codigo": "HORIZONTE_DISTINTO_EPSS",
+      "evidencias": [],
+      "explicacion": "Probabilidad P×I del curso: horizonte 12 meses; EPSS solo es señal de explotación poblacional a 30 días. El cálculo sin probabilidad anual aprobada es tamizaje provisional."
+     },
+     {
+      "codigo": "APLICABILIDAD",
+      "evidencias": [],
+      "explicacion": "Estado de aplicabilidad: candidate (método: legacy_candidate)."
+     },
+     {
+      "codigo": "VERIFICACION_PREVIA",
+      "evidencias": [],
+      "explicacion": "No se calcula riesgo confirmado sin demostrar aplicabilidad. La prioridad indicada es de investigación, no de remediación."
+     }
+    ],
+    "restricciones": {
+     "no_aceptar_riesgo": true,
+     "no_cambiar_prioridad": true,
+     "no_ejecutar_remediacion": true,
+     "no_inventar_aplicabilidad": true,
+     "salida_requiere_validacion": true
+    },
+    "riesgo_inherente": null,
+    "riesgo_residual": null,
+    "schema_version": "bedrock-triage-v1.3",
+    "severidad_tecnica": {
+     "score": 5.3,
+     "source": "nvd",
+     "vector": "CVSS:3.1/AV:L/AC:H/PR:L/UI:N/S:U/C:L/I:H/A:N",
+     "version": "3.1"
+    },
+    "tenant_id": "11111111-1111-1111-1111-111111111111"
+   },
+   "no_persistir_en_evaluaciones_v3": true,
+   "resultado": {
+    "accion_automatica_autorizada": false,
+    "advertencias": [
+     "CVSS_NO_VERIFICADO_DIARIAMENTE",
+     "ESTADO_DESPLIEGUE_DESCONOCIDO",
+     "ESTADO_NVD_NO_VALIDADO",
+     "EXPOSICION_SIN_EVIDENCIA",
+     "IMPACTO_CIA_NO_ESPECIFICADO",
+     "INVENTARIO_NO_VIGENTE",
+     "INVENTARIO_SIN_CONCILIAR",
+     "KEV_NO_VERIFICADO",
+     "PROBABILIDAD_ANUAL_SIN_APROBACION",
+     "TOLERANCIA_NO_APROBADA"
+    ],
+    "asset_code": "trip-service",
+    "case_id": "53616cce-e721-4f80-a4e1-0df03349b980",
+    "component_id": "62bed638-e79e-43c9-bb05-dd1bc77c1290",
+    "controles_descontados": [],
+    "cve": "CVE-2026-39819",
+    "dimensiones_cia_afectadas": [],
+    "entrada_sha256": "4bb7c2160fe223b12985717804f972db3a184c3a0e3d68ff6ded2d2d79ff38cb",
+    "estado_aplicabilidad": "candidate",
+    "estado_evaluacion": "verification_required",
+    "evaluacion_sha256": "2b1f2234f107a0d3cc795774938f97cb95ce4e5503dbbbbee35f4aeb48b993a8",
+    "evaluado_en": "2026-11-19T02:08:10.116446+00:00",
+    "fuente": {
+     "manifest_sha256": "b96e0fbdb11ba035cd18f70bc3106050e87bd9735cf19e91d00c3194bb868f0a",
+     "snapshot": "curada-v3/2026/11/17/120044/manifest.json"
+    },
+    "metricas_cvss_disponibles": [
+     {
+      "score": 5.3,
+      "source": "nvd",
+      "vector": "CVSS:3.1/AV:L/AC:H/PR:L/UI:N/S:U/C:L/I:H/A:N",
+      "version": "3.1"
+     }
+    ],
+    "motor": "risk-engine-v1.3.0-aws-rds-unified",
+    "politica_sha256": "701634e2c3818dcf54072cd960d1ffde41e0e317334f9d0a31bd3d030233232a",
+    "prioridad_operativa": "P3",
+    "prioridad_tipo": "investigacion",
+    "razones": [
+     {
+      "evidencias": [],
+      "explicacion": "Probabilidad P×I del curso: horizonte 12 meses; EPSS solo es señal de explotación poblacional a 30 días. El cálculo sin probabilidad anual aprobada es tamizaje provisional.",
+      "regla": "HORIZONTE_DISTINTO_EPSS"
+     },
+     {
+      "evidencias": [],
+      "explicacion": "Estado de aplicabilidad: candidate (método: legacy_candidate).",
+      "regla": "APLICABILIDAD"
+     },
+     {
+      "evidencias": [],
+      "explicacion": "No se calcula riesgo confirmado sin demostrar aplicabilidad. La prioridad indicada es de investigación, no de remediación.",
+      "regla": "VERIFICACION_PREVIA"
+     }
+    ],
+    "requiere_revision_humana": true,
+    "riesgo_inherente": null,
+    "riesgo_residual": null,
+    "severidad_tecnica": {
+     "score": 5.3,
+     "source": "nvd",
+     "vector": "CVSS:3.1/AV:L/AC:H/PR:L/UI:N/S:U/C:L/I:H/A:N",
+     "version": "3.1"
+    },
+    "tenant_id": "11111111-1111-1111-1111-111111111111"
+   },
+   "contexto_agente": {
+    "metodo_deteccion": "cruce_exacto",
+    "hallazgo_estado": "pendiente_aprobacion_dueno",
+    "activo_tipo": "servicio",
+    "capa": "aplicacion",
+    "dominio_negocio": "ti",
+    "criticidad": 4,
+    "clasificacion_informacion": "confidencial",
+    "ambiente": "produccion",
+    "expuesto_internet": false,
+    "rto_minutes": 30,
+    "rpo_minutes": 5,
+    "vendor": "golang",
+    "producto_nombre": "go",
+    "componente_version": "1.22",
+    "descripcion": "A local user with low privileges may tamper with temporary files created by the runtime under a race condition.",
+    "cwe": [
+     "CWE-367"
+    ],
+    "en_kev": false,
+    "kev_fecha_limite": null,
+    "uso_ransomware": null,
+    "epss": 0.0009,
+    "epss_percentil": 0.25,
+    "epss_fecha": "2026-11-18",
+    "dependientes_directos": [
+     {
+      "activo_codigo": "notifications",
+      "criticidad": 3,
+      "ambiente": "produccion",
+      "tipo_dependencia": "datos"
+     }
+    ]
+   },
+   "cruce": {
+    "prioridad_base": 3,
+    "prioridad_piso": null,
+    "prioridad_final": 3,
+    "puntaje_riesgo": 40.0
+   },
+   "evidencia_autenticada": {
+    "aplicabilidad": [],
+    "exposicion": null
+   }
+  },
+  {
+   "comparacion_legacy": {
+    "nota": "Escalas distintas: no convertir ni sobrescribir puntaje_riesgo 0-100.",
+    "prioridad_nueva": "P3",
+    "prioridad_previa": null,
+    "puntaje_previo_0_100": null,
+    "riesgo_residual_1_9": null
+   },
+   "dependencias": {
+    "dependientes_criticos": null,
+    "dependientes_directos": null,
+    "estado": "no_verificado",
+    "nota": "Relaciones no consultadas por falta de permisos. No afirmar que hay cero dependencias.",
+    "numero_dependientes": null,
+    "requiere_validacion_propagacion": true
+   },
+   "envio_agente": {
+    "accion_permitida": "investigar_evidencia",
+    "advertencias": [
+     "CVSS_NO_VERIFICADO_DIARIAMENTE",
+     "ESTADO_DESPLIEGUE_DESCONOCIDO",
+     "ESTADO_NVD_NO_VALIDADO",
+     "EXPOSICION_SIN_EVIDENCIA",
+     "IMPACTO_CIA_NO_ESPECIFICADO",
+     "INVENTARIO_NO_VIGENTE",
+     "INVENTARIO_SIN_CONCILIAR",
+     "KEV_NO_VERIFICADO",
+     "PROBABILIDAD_ANUAL_SIN_APROBACION",
+     "TOLERANCIA_NO_APROBADA"
+    ],
+    "asset_code": "lock-orchestrator",
+    "case_id": "5c5bbee0-8f44-4d61-a54c-a4ee344bab7e",
+    "component_id": "3f0bb2b2-0f44-4264-a37c-7d55b637fe47",
+    "cve": "CVE-2026-42501",
+    "dependencias": {
+     "dependientes_criticos": null,
+     "dependientes_directos": null,
+     "estado": "no_verificado",
+     "nota": "Relaciones no consultadas por falta de permisos. No afirmar que hay cero dependencias.",
+     "numero_dependientes": null,
+     "requiere_validacion_propagacion": true
+    },
+    "estado_aplicabilidad": "candidate",
+    "estado_evaluacion": "verification_required",
+    "evaluacion_sha256": "bc2a9d9310836a44132598fc6a23e117f586527db0210da54b18824259602ca8",
+    "evidencia_hash": "4a9b85a5b0477ae6ca3038c9c40d4ceff61e4d11bce229cb9ccaaaefefb471df",
+    "motor": "risk-engine-v1.3.0-aws-rds-unified",
+    "politica_sha256": "701634e2c3818dcf54072cd960d1ffde41e0e317334f9d0a31bd3d030233232a",
+    "prioridad": "P3",
+    "prioridad_tipo": "investigacion",
+    "reglas": [
+     {
+      "codigo": "HORIZONTE_DISTINTO_EPSS",
+      "evidencias": [],
+      "explicacion": "Probabilidad P×I del curso: horizonte 12 meses; EPSS solo es señal de explotación poblacional a 30 días. El cálculo sin probabilidad anual aprobada es tamizaje provisional."
+     },
+     {
+      "codigo": "APLICABILIDAD",
+      "evidencias": [],
+      "explicacion": "Estado de aplicabilidad: candidate (método: legacy_candidate)."
+     },
+     {
+      "codigo": "VERIFICACION_PREVIA",
+      "evidencias": [],
+      "explicacion": "No se calcula riesgo confirmado sin demostrar aplicabilidad. La prioridad indicada es de investigación, no de remediación."
+     }
+    ],
+    "restricciones": {
+     "no_aceptar_riesgo": true,
+     "no_cambiar_prioridad": true,
+     "no_ejecutar_remediacion": true,
+     "no_inventar_aplicabilidad": true,
+     "salida_requiere_validacion": true
+    },
+    "riesgo_inherente": null,
+    "riesgo_residual": null,
+    "schema_version": "bedrock-triage-v1.3",
+    "severidad_tecnica": {
+     "score": 7.5,
+     "source": "nvd",
+     "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:H/I:H/A:H",
+     "version": "3.1"
+    },
+    "tenant_id": "11111111-1111-1111-1111-111111111111"
+   },
+   "no_persistir_en_evaluaciones_v3": true,
+   "resultado": {
+    "accion_automatica_autorizada": false,
+    "advertencias": [
+     "CVSS_NO_VERIFICADO_DIARIAMENTE",
+     "ESTADO_DESPLIEGUE_DESCONOCIDO",
+     "ESTADO_NVD_NO_VALIDADO",
+     "EXPOSICION_SIN_EVIDENCIA",
+     "IMPACTO_CIA_NO_ESPECIFICADO",
+     "INVENTARIO_NO_VIGENTE",
+     "INVENTARIO_SIN_CONCILIAR",
+     "KEV_NO_VERIFICADO",
+     "PROBABILIDAD_ANUAL_SIN_APROBACION",
+     "TOLERANCIA_NO_APROBADA"
+    ],
+    "asset_code": "lock-orchestrator",
+    "case_id": "5c5bbee0-8f44-4d61-a54c-a4ee344bab7e",
+    "component_id": "3f0bb2b2-0f44-4264-a37c-7d55b637fe47",
+    "controles_descontados": [],
+    "cve": "CVE-2026-42501",
+    "dimensiones_cia_afectadas": [],
+    "entrada_sha256": "4a9b85a5b0477ae6ca3038c9c40d4ceff61e4d11bce229cb9ccaaaefefb471df",
+    "estado_aplicabilidad": "candidate",
+    "estado_evaluacion": "verification_required",
+    "evaluacion_sha256": "bc2a9d9310836a44132598fc6a23e117f586527db0210da54b18824259602ca8",
+    "evaluado_en": "2026-11-19T02:08:10.116446+00:00",
+    "fuente": {
+     "manifest_sha256": "b96e0fbdb11ba035cd18f70bc3106050e87bd9735cf19e91d00c3194bb868f0a",
+     "snapshot": "curada-v3/2026/11/17/120044/manifest.json"
+    },
+    "metricas_cvss_disponibles": [
+     {
+      "score": 7.5,
+      "source": "nvd",
+      "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:H/I:H/A:H",
+      "version": "3.1"
+     }
+    ],
+    "motor": "risk-engine-v1.3.0-aws-rds-unified",
+    "politica_sha256": "701634e2c3818dcf54072cd960d1ffde41e0e317334f9d0a31bd3d030233232a",
+    "prioridad_operativa": "P3",
+    "prioridad_tipo": "investigacion",
+    "razones": [
+     {
+      "evidencias": [],
+      "explicacion": "Probabilidad P×I del curso: horizonte 12 meses; EPSS solo es señal de explotación poblacional a 30 días. El cálculo sin probabilidad anual aprobada es tamizaje provisional.",
+      "regla": "HORIZONTE_DISTINTO_EPSS"
+     },
+     {
+      "evidencias": [],
+      "explicacion": "Estado de aplicabilidad: candidate (método: legacy_candidate).",
+      "regla": "APLICABILIDAD"
+     },
+     {
+      "evidencias": [],
+      "explicacion": "No se calcula riesgo confirmado sin demostrar aplicabilidad. La prioridad indicada es de investigación, no de remediación.",
+      "regla": "VERIFICACION_PREVIA"
+     }
+    ],
+    "requiere_revision_humana": true,
+    "riesgo_inherente": null,
+    "riesgo_residual": null,
+    "severidad_tecnica": {
+     "score": 7.5,
+     "source": "nvd",
+     "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:H/I:H/A:H",
+     "version": "3.1"
+    },
+    "tenant_id": "11111111-1111-1111-1111-111111111111"
+   },
+   "contexto_agente": {
+    "metodo_deteccion": "cruce_exacto",
+    "hallazgo_estado": "pendiente_aprobacion_dueno",
+    "activo_tipo": "servicio",
+    "capa": "aplicacion",
+    "dominio_negocio": "ti",
+    "criticidad": 5,
+    "clasificacion_informacion": "confidencial",
+    "ambiente": "produccion",
+    "expuesto_internet": false,
+    "rto_minutes": 15,
+    "rpo_minutes": 5,
+    "vendor": "golang",
+    "producto_nombre": "go",
+    "componente_version": "1.22",
+    "descripcion": "A crafted response processed by the HTTP client may lead to memory corruption when a user-initiated request reaches an attacker-controlled endpoint.",
+    "cwe": [
+     "CWE-787"
+    ],
+    "en_kev": false,
+    "kev_fecha_limite": null,
+    "uso_ransomware": null,
+    "epss": 0.0041,
+    "epss_percentil": 0.62,
+    "epss_fecha": "2026-11-18",
+    "dependientes_directos": [
+     {
+      "activo_codigo": "trip-service",
+      "criticidad": 4,
+      "ambiente": "produccion",
+      "tipo_dependencia": "ejecucion"
+     }
+    ]
+   },
+   "cruce": {
+    "prioridad_base": 2,
+    "prioridad_piso": null,
+    "prioridad_final": 2,
+    "puntaje_riesgo": 70.0
+   },
+   "evidencia_autenticada": {
+    "aplicabilidad": [],
+    "exposicion": null
+   }
+  },
+  {
+   "comparacion_legacy": {
+    "nota": "Escalas distintas: no convertir ni sobrescribir puntaje_riesgo 0-100.",
+    "prioridad_nueva": "P1",
+    "prioridad_previa": null,
+    "puntaje_previo_0_100": null,
+    "riesgo_residual_1_9": null
+   },
+   "dependencias": {
+    "dependientes_criticos": null,
+    "dependientes_directos": null,
+    "estado": "no_verificado",
+    "nota": "Relaciones no consultadas por falta de permisos. No afirmar que hay cero dependencias.",
+    "numero_dependientes": null,
+    "requiere_validacion_propagacion": true
+   },
+   "envio_agente": {
+    "accion_permitida": "investigar_evidencia",
+    "advertencias": [
+     "CVSS_NO_VERIFICADO_DIARIAMENTE",
+     "ESTADO_DESPLIEGUE_DESCONOCIDO",
+     "ESTADO_NVD_NO_VALIDADO",
+     "EXPOSICION_SIN_EVIDENCIA",
+     "IMPACTO_CIA_NO_ESPECIFICADO",
+     "INVENTARIO_NO_VIGENTE",
+     "INVENTARIO_SIN_CONCILIAR",
+     "KEV_NO_VERIFICADO",
+     "PROBABILIDAD_ANUAL_SIN_APROBACION",
+     "TOLERANCIA_NO_APROBADA"
+    ],
+    "asset_code": "alb-envoy",
+    "case_id": "686e096f-4987-4f5a-a694-de0abdc57840",
+    "component_id": "3aabf16b-534b-44d3-b7f4-b3e8bde6e777",
+    "cve": "CVE-2026-111497",
+    "dependencias": {
+     "dependientes_criticos": null,
+     "dependientes_directos": null,
+     "estado": "no_verificado",
+     "nota": "Relaciones no consultadas por falta de permisos. No afirmar que hay cero dependencias.",
+     "numero_dependientes": null,
+     "requiere_validacion_propagacion": true
+    },
+    "estado_aplicabilidad": "candidate",
+    "estado_evaluacion": "verification_required",
+    "evaluacion_sha256": "f64c45fd495f9b675a7025f06eaa9472964d6dc8c4bfa7bf485edd8101080052",
+    "evidencia_hash": "75b53ca94af8c5868b6fe0e998a05cd82248b12657c5797e61e8133c6fd8c9be",
+    "motor": "risk-engine-v1.3.0-aws-rds-unified",
+    "politica_sha256": "701634e2c3818dcf54072cd960d1ffde41e0e317334f9d0a31bd3d030233232a",
+    "prioridad": "P1",
+    "prioridad_tipo": "investigacion",
+    "reglas": [
+     {
+      "codigo": "HORIZONTE_DISTINTO_EPSS",
+      "evidencias": [],
+      "explicacion": "Probabilidad P×I del curso: horizonte 12 meses; EPSS solo es señal de explotación poblacional a 30 días. El cálculo sin probabilidad anual aprobada es tamizaje provisional."
+     },
+     {
+      "codigo": "APLICABILIDAD",
+      "evidencias": [],
+      "explicacion": "Estado de aplicabilidad: candidate (método: legacy_candidate)."
+     },
+     {
+      "codigo": "VERIFICACION_PREVIA",
+      "evidencias": [],
+      "explicacion": "No se calcula riesgo confirmado sin demostrar aplicabilidad. La prioridad indicada es de investigación, no de remediación."
+     }
+    ],
+    "restricciones": {
+     "no_aceptar_riesgo": true,
+     "no_cambiar_prioridad": true,
+     "no_ejecutar_remediacion": true,
+     "no_inventar_aplicabilidad": true,
+     "salida_requiere_validacion": true
+    },
+    "riesgo_inherente": null,
+    "riesgo_residual": null,
+    "schema_version": "bedrock-triage-v1.3",
+    "severidad_tecnica": {
+     "score": 9.2,
+     "source": "nvd",
+     "vector": "CVSS:4.0/AV:N/AC:L/AT:P/PR:N/UI:N/VC:H/VI:H/VA:H/SC:N/SI:N/SA:N/E:X/CR:X/IR:X/AR:X/MAV:X/MAC:X/MAT:X/MPR:X/MUI:X/MVC:X/MVI:X/MVA:X/MSC:X/MSI:X/MSA:X/S:X/AU:X/R:X/V:X/RE:X/U:X",
+     "version": "4.0"
+    },
+    "tenant_id": "11111111-1111-1111-1111-111111111111"
+   },
+   "no_persistir_en_evaluaciones_v3": true,
+   "resultado": {
+    "accion_automatica_autorizada": false,
+    "advertencias": [
+     "CVSS_NO_VERIFICADO_DIARIAMENTE",
+     "ESTADO_DESPLIEGUE_DESCONOCIDO",
+     "ESTADO_NVD_NO_VALIDADO",
+     "EXPOSICION_SIN_EVIDENCIA",
+     "IMPACTO_CIA_NO_ESPECIFICADO",
+     "INVENTARIO_NO_VIGENTE",
+     "INVENTARIO_SIN_CONCILIAR",
+     "KEV_NO_VERIFICADO",
+     "PROBABILIDAD_ANUAL_SIN_APROBACION",
+     "TOLERANCIA_NO_APROBADA"
+    ],
+    "asset_code": "alb-envoy",
+    "case_id": "686e096f-4987-4f5a-a694-de0abdc57840",
+    "component_id": "3aabf16b-534b-44d3-b7f4-b3e8bde6e777",
+    "controles_descontados": [],
+    "cve": "CVE-2026-111497",
+    "dimensiones_cia_afectadas": [],
+    "entrada_sha256": "75b53ca94af8c5868b6fe0e998a05cd82248b12657c5797e61e8133c6fd8c9be",
+    "estado_aplicabilidad": "candidate",
+    "estado_evaluacion": "verification_required",
+    "evaluacion_sha256": "f64c45fd495f9b675a7025f06eaa9472964d6dc8c4bfa7bf485edd8101080052",
+    "evaluado_en": "2026-11-19T02:08:10.116446+00:00",
+    "fuente": {
+     "manifest_sha256": "b96e0fbdb11ba035cd18f70bc3106050e87bd9735cf19e91d00c3194bb868f0a",
+     "snapshot": "curada-v3/2026/11/17/120044/manifest.json"
+    },
+    "metricas_cvss_disponibles": [
+     {
+      "score": 9.2,
+      "source": "nvd",
+      "vector": "CVSS:4.0/AV:N/AC:L/AT:P/PR:N/UI:N/VC:H/VI:H/VA:H/SC:N/SI:N/SA:N/E:X/CR:X/IR:X/AR:X/MAV:X/MAC:X/MAT:X/MPR:X/MUI:X/MVC:X/MVI:X/MVA:X/MSC:X/MSI:X/MSA:X/S:X/AU:X/R:X/V:X/RE:X/U:X",
+      "version": "4.0"
+     },
+     {
+      "score": 9.8,
+      "source": "nvd",
+      "vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+      "version": "3.1"
+     }
+    ],
+    "motor": "risk-engine-v1.3.0-aws-rds-unified",
+    "politica_sha256": "701634e2c3818dcf54072cd960d1ffde41e0e317334f9d0a31bd3d030233232a",
+    "prioridad_operativa": "P1",
+    "prioridad_tipo": "investigacion",
+    "razones": [
+     {
+      "evidencias": [],
+      "explicacion": "Probabilidad P×I del curso: horizonte 12 meses; EPSS solo es señal de explotación poblacional a 30 días. El cálculo sin probabilidad anual aprobada es tamizaje provisional.",
+      "regla": "HORIZONTE_DISTINTO_EPSS"
+     },
+     {
+      "evidencias": [],
+      "explicacion": "Estado de aplicabilidad: candidate (método: legacy_candidate).",
+      "regla": "APLICABILIDAD"
+     },
+     {
+      "evidencias": [],
+      "explicacion": "No se calcula riesgo confirmado sin demostrar aplicabilidad. La prioridad indicada es de investigación, no de remediación.",
+      "regla": "VERIFICACION_PREVIA"
+     }
+    ],
+    "requiere_revision_humana": true,
+    "riesgo_inherente": null,
+    "riesgo_residual": null,
+    "severidad_tecnica": {
+     "score": 9.2,
+     "source": "nvd",
+     "vector": "CVSS:4.0/AV:N/AC:L/AT:P/PR:N/UI:N/VC:H/VI:H/VA:H/SC:N/SI:N/SA:N/E:X/CR:X/IR:X/AR:X/MAV:X/MAC:X/MAT:X/MPR:X/MUI:X/MVC:X/MVI:X/MVA:X/MSC:X/MSI:X/MSA:X/S:X/AU:X/R:X/V:X/RE:X/U:X",
+     "version": "4.0"
+    },
+    "tenant_id": "11111111-1111-1111-1111-111111111111"
+   },
+   "contexto_agente": {
+    "metodo_deteccion": "cruce_exacto",
+    "hallazgo_estado": "pendiente_aprobacion_dueno",
+    "activo_tipo": "red",
+    "capa": "red",
+    "dominio_negocio": "ti",
+    "criticidad": 5,
+    "clasificacion_informacion": "confidencial",
+    "ambiente": "produccion",
+    "expuesto_internet": true,
+    "rto_minutes": 15,
+    "rpo_minutes": 0,
+    "vendor": "envoyproxy",
+    "producto_nombre": "envoy",
+    "componente_version": "1.30.2",
+    "descripcion": "Improper authentication in the JWT authentication filter allows a remote unauthenticated attacker to bypass token validation when a specific provider configuration is present.",
+    "cwe": [
+     "CWE-287"
+    ],
+    "en_kev": true,
+    "kev_fecha_limite": "2026-12-09",
+    "uso_ransomware": false,
+    "epss": 0.0123,
+    "epss_percentil": 0.871,
+    "epss_fecha": "2026-11-18",
+    "dependientes_directos": [
+     {
+      "activo_codigo": "auth-oidc",
+      "criticidad": 5,
+      "ambiente": "produccion",
+      "tipo_dependencia": "red"
+     },
+     {
+      "activo_codigo": "trip-service",
+      "criticidad": 4,
+      "ambiente": "produccion",
+      "tipo_dependencia": "red"
+     }
+    ]
+   },
+   "cruce": {
+    "prioridad_base": 1,
+    "prioridad_piso": 1,
+    "prioridad_final": 1,
+    "puntaje_riesgo": 100.0
+   },
+   "evidencia_autenticada": {
+    "aplicabilidad": [],
+    "exposicion": null
+   }
+  },
+  {
+   "comparacion_legacy": {
+    "nota": "Escalas distintas: no convertir ni sobrescribir puntaje_riesgo 0-100.",
+    "prioridad_nueva": "P3",
+    "prioridad_previa": null,
+    "puntaje_previo_0_100": null,
+    "riesgo_residual_1_9": null
+   },
+   "dependencias": {
+    "dependientes_criticos": null,
+    "dependientes_directos": null,
+    "estado": "no_verificado",
+    "nota": "Relaciones no consultadas por falta de permisos. No afirmar que hay cero dependencias.",
+    "numero_dependientes": null,
+    "requiere_validacion_propagacion": true
+   },
+   "envio_agente": {
+    "accion_permitida": "investigar_evidencia",
+    "advertencias": [
+     "CVSS_NO_VERIFICADO_DIARIAMENTE",
+     "ESTADO_DESPLIEGUE_DESCONOCIDO",
+     "ESTADO_NVD_NO_VALIDADO",
+     "EXPOSICION_SIN_EVIDENCIA",
+     "IMPACTO_CIA_NO_ESPECIFICADO",
+     "INVENTARIO_NO_VIGENTE",
+     "INVENTARIO_SIN_CONCILIAR",
+     "KEV_NO_VERIFICADO",
+     "PROBABILIDAD_ANUAL_SIN_APROBACION",
+     "TOLERANCIA_NO_APROBADA"
+    ],
+    "asset_code": "trip-service",
+    "case_id": "6ae6a29e-9a8b-46b2-a281-60ad37ab558c",
+    "component_id": "62bed638-e79e-43c9-bb05-dd1bc77c1290",
+    "cve": "CVE-2026-39817",
+    "dependencias": {
+     "dependientes_criticos": null,
+     "dependientes_directos": null,
+     "estado": "no_verificado",
+     "nota": "Relaciones no consultadas por falta de permisos. No afirmar que hay cero dependencias.",
+     "numero_dependientes": null,
+     "requiere_validacion_propagacion": true
+    },
+    "estado_aplicabilidad": "candidate",
+    "estado_evaluacion": "verification_required",
+    "evaluacion_sha256": "f4da035510ce950922c0f4df5352e3f90dba07579e2ae7a67176b19d3c79c521",
+    "evidencia_hash": "12a7b22da08ba14461dd86bab5a11f47a7fab48cd6a3888579e827e1effdcc4a",
+    "motor": "risk-engine-v1.3.0-aws-rds-unified",
+    "politica_sha256": "701634e2c3818dcf54072cd960d1ffde41e0e317334f9d0a31bd3d030233232a",
+    "prioridad": "P3",
+    "prioridad_tipo": "investigacion",
+    "reglas": [
+     {
+      "codigo": "HORIZONTE_DISTINTO_EPSS",
+      "evidencias": [],
+      "explicacion": "Probabilidad P×I del curso: horizonte 12 meses; EPSS solo es señal de explotación poblacional a 30 días. El cálculo sin probabilidad anual aprobada es tamizaje provisional."
+     },
+     {
+      "codigo": "APLICABILIDAD",
+      "evidencias": [],
+      "explicacion": "Estado de aplicabilidad: candidate (método: legacy_candidate)."
+     },
+     {
+      "codigo": "VERIFICACION_PREVIA",
+      "evidencias": [],
+      "explicacion": "No se calcula riesgo confirmado sin demostrar aplicabilidad. La prioridad indicada es de investigación, no de remediación."
+     }
+    ],
+    "restricciones": {
+     "no_aceptar_riesgo": true,
+     "no_cambiar_prioridad": true,
+     "no_ejecutar_remediacion": true,
+     "no_inventar_aplicabilidad": true,
+     "salida_requiere_validacion": true
+    },
+    "riesgo_inherente": null,
+    "riesgo_residual": null,
+    "schema_version": "bedrock-triage-v1.3",
+    "severidad_tecnica": {
+     "score": 5.9,
+     "source": "nvd",
+     "vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:R/S:C/C:N/I:H/A:N",
+     "version": "3.1"
+    },
+    "tenant_id": "11111111-1111-1111-1111-111111111111"
+   },
+   "no_persistir_en_evaluaciones_v3": true,
+   "resultado": {
+    "accion_automatica_autorizada": false,
+    "advertencias": [
+     "CVSS_NO_VERIFICADO_DIARIAMENTE",
+     "ESTADO_DESPLIEGUE_DESCONOCIDO",
+     "ESTADO_NVD_NO_VALIDADO",
+     "EXPOSICION_SIN_EVIDENCIA",
+     "IMPACTO_CIA_NO_ESPECIFICADO",
+     "INVENTARIO_NO_VIGENTE",
+     "INVENTARIO_SIN_CONCILIAR",
+     "KEV_NO_VERIFICADO",
+     "PROBABILIDAD_ANUAL_SIN_APROBACION",
+     "TOLERANCIA_NO_APROBADA"
+    ],
+    "asset_code": "trip-service",
+    "case_id": "6ae6a29e-9a8b-46b2-a281-60ad37ab558c",
+    "component_id": "62bed638-e79e-43c9-bb05-dd1bc77c1290",
+    "controles_descontados": [],
+    "cve": "CVE-2026-39817",
+    "dimensiones_cia_afectadas": [],
+    "entrada_sha256": "12a7b22da08ba14461dd86bab5a11f47a7fab48cd6a3888579e827e1effdcc4a",
+    "estado_aplicabilidad": "candidate",
+    "estado_evaluacion": "verification_required",
+    "evaluacion_sha256": "f4da035510ce950922c0f4df5352e3f90dba07579e2ae7a67176b19d3c79c521",
+    "evaluado_en": "2026-11-19T02:08:10.116446+00:00",
+    "fuente": {
+     "manifest_sha256": "b96e0fbdb11ba035cd18f70bc3106050e87bd9735cf19e91d00c3194bb868f0a",
+     "snapshot": "curada-v3/2026/11/17/120044/manifest.json"
+    },
+    "metricas_cvss_disponibles": [
+     {
+      "score": 5.9,
+      "source": "nvd",
+      "vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:R/S:C/C:N/I:H/A:N",
+      "version": "3.1"
+     }
+    ],
+    "motor": "risk-engine-v1.3.0-aws-rds-unified",
+    "politica_sha256": "701634e2c3818dcf54072cd960d1ffde41e0e317334f9d0a31bd3d030233232a",
+    "prioridad_operativa": "P3",
+    "prioridad_tipo": "investigacion",
+    "razones": [
+     {
+      "evidencias": [],
+      "explicacion": "Probabilidad P×I del curso: horizonte 12 meses; EPSS solo es señal de explotación poblacional a 30 días. El cálculo sin probabilidad anual aprobada es tamizaje provisional.",
+      "regla": "HORIZONTE_DISTINTO_EPSS"
+     },
+     {
+      "evidencias": [],
+      "explicacion": "Estado de aplicabilidad: candidate (método: legacy_candidate).",
+      "regla": "APLICABILIDAD"
+     },
+     {
+      "evidencias": [],
+      "explicacion": "No se calcula riesgo confirmado sin demostrar aplicabilidad. La prioridad indicada es de investigación, no de remediación.",
+      "regla": "VERIFICACION_PREVIA"
+     }
+    ],
+    "requiere_revision_humana": true,
+    "riesgo_inherente": null,
+    "riesgo_residual": null,
+    "severidad_tecnica": {
+     "score": 5.9,
+     "source": "nvd",
+     "vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:R/S:C/C:N/I:H/A:N",
+     "version": "3.1"
+    },
+    "tenant_id": "11111111-1111-1111-1111-111111111111"
+   },
+   "contexto_agente": {
+    "metodo_deteccion": "cruce_exacto",
+    "hallazgo_estado": "pendiente_aprobacion_dueno",
+    "activo_tipo": "servicio",
+    "capa": "aplicacion",
+    "dominio_negocio": "ti",
+    "criticidad": 4,
+    "clasificacion_informacion": "confidencial",
+    "ambiente": "produccion",
+    "expuesto_internet": false,
+    "rto_minutes": 30,
+    "rpo_minutes": 5,
+    "vendor": "golang",
+    "producto_nombre": "go",
+    "componente_version": "1.22",
+    "descripcion": "A local user with low privileges may escalate privileges through a crafted configuration file processed by the runtime, affecting resources beyond the vulnerable component.",
+    "cwe": [
+     "CWE-269"
+    ],
+    "en_kev": false,
+    "kev_fecha_limite": null,
+    "uso_ransomware": null,
+    "epss": 0.0011,
+    "epss_percentil": 0.31,
+    "epss_fecha": "2026-11-18",
+    "dependientes_directos": [
+     {
+      "activo_codigo": "notifications",
+      "criticidad": 3,
+      "ambiente": "produccion",
+      "tipo_dependencia": "datos"
+     }
+    ]
+   },
+   "cruce": {
+    "prioridad_base": 3,
+    "prioridad_piso": null,
+    "prioridad_final": 3,
+    "puntaje_riesgo": 45.0
+   },
+   "evidencia_autenticada": {
+    "aplicabilidad": [],
+    "exposicion": null
+   }
+  },
+  {
+   "comparacion_legacy": {
+    "nota": "Escalas distintas: no convertir ni sobrescribir puntaje_riesgo 0-100.",
+    "prioridad_nueva": "P2",
+    "prioridad_previa": null,
+    "puntaje_previo_0_100": null,
+    "riesgo_residual_1_9": null
+   },
+   "dependencias": {
+    "dependientes_criticos": null,
+    "dependientes_directos": null,
+    "estado": "no_verificado",
+    "nota": "Relaciones no consultadas por falta de permisos. No afirmar que hay cero dependencias.",
+    "numero_dependientes": null,
+    "requiere_validacion_propagacion": true
+   },
+   "envio_agente": {
+    "accion_permitida": "investigar_evidencia",
+    "advertencias": [
+     "CVSS_NO_VERIFICADO_DIARIAMENTE",
+     "ESTADO_DESPLIEGUE_DESCONOCIDO",
+     "ESTADO_NVD_NO_VALIDADO",
+     "EXPOSICION_SIN_EVIDENCIA",
+     "IMPACTO_CIA_NO_ESPECIFICADO",
+     "INVENTARIO_NO_VIGENTE",
+     "INVENTARIO_SIN_CONCILIAR",
+     "KEV_NO_VERIFICADO",
+     "PROBABILIDAD_ANUAL_SIN_APROBACION",
+     "TOLERANCIA_NO_APROBADA"
+    ],
+    "asset_code": "notifications",
+    "case_id": "c2eacbd1-d337-4711-8f19-4987472b06d8",
+    "component_id": "2103bf6a-7ab9-4fb5-b895-98f1e5d46f08",
+    "cve": "CVE-2026-111497",
+    "dependencias": {
+     "dependientes_criticos": null,
+     "dependientes_directos": null,
+     "estado": "no_verificado",
+     "nota": "Relaciones no consultadas por falta de permisos. No afirmar que hay cero dependencias.",
+     "numero_dependientes": null,
+     "requiere_validacion_propagacion": true
+    },
+    "estado_aplicabilidad": "candidate",
+    "estado_evaluacion": "verification_required",
+    "evaluacion_sha256": "55e28e234b18163d0e41a5725ba22294ecce50bca3ecb3b8d044ad7f4c1d2b9a",
+    "evidencia_hash": "76998b6e093af1c2334a1fa0e00c02b4d4374a0919623a48e9e1c31a591ebcef",
+    "motor": "risk-engine-v1.3.0-aws-rds-unified",
+    "politica_sha256": "701634e2c3818dcf54072cd960d1ffde41e0e317334f9d0a31bd3d030233232a",
+    "prioridad": "P2",
+    "prioridad_tipo": "investigacion",
+    "reglas": [
+     {
+      "codigo": "HORIZONTE_DISTINTO_EPSS",
+      "evidencias": [],
+      "explicacion": "Probabilidad P×I del curso: horizonte 12 meses; EPSS solo es señal de explotación poblacional a 30 días. El cálculo sin probabilidad anual aprobada es tamizaje provisional."
+     },
+     {
+      "codigo": "APLICABILIDAD",
+      "evidencias": [],
+      "explicacion": "Estado de aplicabilidad: candidate (método: legacy_candidate)."
+     },
+     {
+      "codigo": "VERIFICACION_PREVIA",
+      "evidencias": [],
+      "explicacion": "No se calcula riesgo confirmado sin demostrar aplicabilidad. La prioridad indicada es de investigación, no de remediación."
+     }
+    ],
+    "restricciones": {
+     "no_aceptar_riesgo": true,
+     "no_cambiar_prioridad": true,
+     "no_ejecutar_remediacion": true,
+     "no_inventar_aplicabilidad": true,
+     "salida_requiere_validacion": true
+    },
+    "riesgo_inherente": null,
+    "riesgo_residual": null,
+    "schema_version": "bedrock-triage-v1.3",
+    "severidad_tecnica": {
+     "score": 9.2,
+     "source": "nvd",
+     "vector": "CVSS:4.0/AV:N/AC:L/AT:P/PR:N/UI:N/VC:H/VI:H/VA:H/SC:N/SI:N/SA:N/E:X/CR:X/IR:X/AR:X/MAV:X/MAC:X/MAT:X/MPR:X/MUI:X/MVC:X/MVI:X/MVA:X/MSC:X/MSI:X/MSA:X/S:X/AU:X/R:X/V:X/RE:X/U:X",
+     "version": "4.0"
+    },
+    "tenant_id": "11111111-1111-1111-1111-111111111111"
+   },
+   "no_persistir_en_evaluaciones_v3": true,
+   "resultado": {
+    "accion_automatica_autorizada": false,
+    "advertencias": [
+     "CVSS_NO_VERIFICADO_DIARIAMENTE",
+     "ESTADO_DESPLIEGUE_DESCONOCIDO",
+     "ESTADO_NVD_NO_VALIDADO",
+     "EXPOSICION_SIN_EVIDENCIA",
+     "IMPACTO_CIA_NO_ESPECIFICADO",
+     "INVENTARIO_NO_VIGENTE",
+     "INVENTARIO_SIN_CONCILIAR",
+     "KEV_NO_VERIFICADO",
+     "PROBABILIDAD_ANUAL_SIN_APROBACION",
+     "TOLERANCIA_NO_APROBADA"
+    ],
+    "asset_code": "notifications",
+    "case_id": "c2eacbd1-d337-4711-8f19-4987472b06d8",
+    "component_id": "2103bf6a-7ab9-4fb5-b895-98f1e5d46f08",
+    "controles_descontados": [],
+    "cve": "CVE-2026-111497",
+    "dimensiones_cia_afectadas": [],
+    "entrada_sha256": "76998b6e093af1c2334a1fa0e00c02b4d4374a0919623a48e9e1c31a591ebcef",
+    "estado_aplicabilidad": "candidate",
+    "estado_evaluacion": "verification_required",
+    "evaluacion_sha256": "55e28e234b18163d0e41a5725ba22294ecce50bca3ecb3b8d044ad7f4c1d2b9a",
+    "evaluado_en": "2026-11-19T02:08:10.116446+00:00",
+    "fuente": {
+     "manifest_sha256": "b96e0fbdb11ba035cd18f70bc3106050e87bd9735cf19e91d00c3194bb868f0a",
+     "snapshot": "curada-v3/2026/11/17/120044/manifest.json"
+    },
+    "metricas_cvss_disponibles": [
+     {
+      "score": 9.2,
+      "source": "nvd",
+      "vector": "CVSS:4.0/AV:N/AC:L/AT:P/PR:N/UI:N/VC:H/VI:H/VA:H/SC:N/SI:N/SA:N/E:X/CR:X/IR:X/AR:X/MAV:X/MAC:X/MAT:X/MPR:X/MUI:X/MVC:X/MVI:X/MVA:X/MSC:X/MSI:X/MSA:X/S:X/AU:X/R:X/V:X/RE:X/U:X",
+      "version": "4.0"
+     },
+     {
+      "score": 9.8,
+      "source": "nvd",
+      "vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+      "version": "3.1"
+     }
+    ],
+    "motor": "risk-engine-v1.3.0-aws-rds-unified",
+    "politica_sha256": "701634e2c3818dcf54072cd960d1ffde41e0e317334f9d0a31bd3d030233232a",
+    "prioridad_operativa": "P2",
+    "prioridad_tipo": "investigacion",
+    "razones": [
+     {
+      "evidencias": [],
+      "explicacion": "Probabilidad P×I del curso: horizonte 12 meses; EPSS solo es señal de explotación poblacional a 30 días. El cálculo sin probabilidad anual aprobada es tamizaje provisional.",
+      "regla": "HORIZONTE_DISTINTO_EPSS"
+     },
+     {
+      "evidencias": [],
+      "explicacion": "Estado de aplicabilidad: candidate (método: legacy_candidate).",
+      "regla": "APLICABILIDAD"
+     },
+     {
+      "evidencias": [],
+      "explicacion": "No se calcula riesgo confirmado sin demostrar aplicabilidad. La prioridad indicada es de investigación, no de remediación.",
+      "regla": "VERIFICACION_PREVIA"
+     }
+    ],
+    "requiere_revision_humana": true,
+    "riesgo_inherente": null,
+    "riesgo_residual": null,
+    "severidad_tecnica": {
+     "score": 9.2,
+     "source": "nvd",
+     "vector": "CVSS:4.0/AV:N/AC:L/AT:P/PR:N/UI:N/VC:H/VI:H/VA:H/SC:N/SI:N/SA:N/E:X/CR:X/IR:X/AR:X/MAV:X/MAC:X/MAT:X/MPR:X/MUI:X/MVC:X/MVI:X/MVA:X/MSC:X/MSI:X/MSA:X/S:X/AU:X/R:X/V:X/RE:X/U:X",
+     "version": "4.0"
+    },
+    "tenant_id": "11111111-1111-1111-1111-111111111111"
+   },
+   "contexto_agente": {
+    "metodo_deteccion": "cruce_exacto",
+    "hallazgo_estado": "pendiente_aprobacion_dueno",
+    "activo_tipo": "servicio",
+    "capa": "aplicacion",
+    "dominio_negocio": "finanzas_y_negocios",
+    "criticidad": 3,
+    "clasificacion_informacion": "confidencial",
+    "ambiente": "produccion",
+    "expuesto_internet": false,
+    "rto_minutes": 240,
+    "rpo_minutes": 60,
+    "vendor": "envoyproxy",
+    "producto_nombre": "envoy",
+    "componente_version": "1.30.2",
+    "descripcion": "Improper authentication in the JWT authentication filter allows a remote unauthenticated attacker to bypass token validation when a specific provider configuration is present.",
+    "cwe": [
+     "CWE-287"
+    ],
+    "en_kev": true,
+    "kev_fecha_limite": "2026-12-09",
+    "uso_ransomware": false,
+    "epss": 0.0123,
+    "epss_percentil": 0.871,
+    "epss_fecha": "2026-11-18",
+    "dependientes_directos": []
+   },
+   "cruce": {
+    "prioridad_base": 1,
+    "prioridad_piso": 1,
+    "prioridad_final": 1,
+    "puntaje_riesgo": 100.0
+   },
+   "evidencia_autenticada": {
+    "aplicabilidad": [],
+    "exposicion": null
+   }
+  },
+  {
+   "comparacion_legacy": {
+    "nota": "Escalas distintas: no convertir ni sobrescribir puntaje_riesgo 0-100.",
+    "prioridad_nueva": "P3",
+    "prioridad_previa": null,
+    "puntaje_previo_0_100": null,
+    "riesgo_residual_1_9": null
+   },
+   "dependencias": {
+    "dependientes_criticos": null,
+    "dependientes_directos": null,
+    "estado": "no_verificado",
+    "nota": "Relaciones no consultadas por falta de permisos. No afirmar que hay cero dependencias.",
+    "numero_dependientes": null,
+    "requiere_validacion_propagacion": true
+   },
+   "envio_agente": {
+    "accion_permitida": "investigar_evidencia",
+    "advertencias": [
+     "CVSS_NO_VERIFICADO_DIARIAMENTE",
+     "ESTADO_DESPLIEGUE_DESCONOCIDO",
+     "ESTADO_NVD_NO_VALIDADO",
+     "EXPOSICION_SIN_EVIDENCIA",
+     "IMPACTO_CIA_NO_ESPECIFICADO",
+     "INVENTARIO_NO_VIGENTE",
+     "INVENTARIO_SIN_CONCILIAR",
+     "KEV_NO_VERIFICADO",
+     "PROBABILIDAD_ANUAL_SIN_APROBACION",
+     "TOLERANCIA_NO_APROBADA"
+    ],
+    "asset_code": "lock-orchestrator",
+    "case_id": "ce07ddae-d057-435d-ac21-bd990b4ffc8e",
+    "component_id": "3f0bb2b2-0f44-4264-a37c-7d55b637fe47",
+    "cve": "CVE-2026-39817",
+    "dependencias": {
+     "dependientes_criticos": null,
+     "dependientes_directos": null,
+     "estado": "no_verificado",
+     "nota": "Relaciones no consultadas por falta de permisos. No afirmar que hay cero dependencias.",
+     "numero_dependientes": null,
+     "requiere_validacion_propagacion": true
+    },
+    "estado_aplicabilidad": "candidate",
+    "estado_evaluacion": "verification_required",
+    "evaluacion_sha256": "2e03800d33238499926a285663f757180e54089f4c06501236cbd15a12b43eb6",
+    "evidencia_hash": "a0874bbc74aab6db1b9a050efaf66bd7620048fdcca474ef3158bacf41afb515",
+    "motor": "risk-engine-v1.3.0-aws-rds-unified",
+    "politica_sha256": "701634e2c3818dcf54072cd960d1ffde41e0e317334f9d0a31bd3d030233232a",
+    "prioridad": "P3",
+    "prioridad_tipo": "investigacion",
+    "reglas": [
+     {
+      "codigo": "HORIZONTE_DISTINTO_EPSS",
+      "evidencias": [],
+      "explicacion": "Probabilidad P×I del curso: horizonte 12 meses; EPSS solo es señal de explotación poblacional a 30 días. El cálculo sin probabilidad anual aprobada es tamizaje provisional."
+     },
+     {
+      "codigo": "APLICABILIDAD",
+      "evidencias": [],
+      "explicacion": "Estado de aplicabilidad: candidate (método: legacy_candidate)."
+     },
+     {
+      "codigo": "VERIFICACION_PREVIA",
+      "evidencias": [],
+      "explicacion": "No se calcula riesgo confirmado sin demostrar aplicabilidad. La prioridad indicada es de investigación, no de remediación."
+     }
+    ],
+    "restricciones": {
+     "no_aceptar_riesgo": true,
+     "no_cambiar_prioridad": true,
+     "no_ejecutar_remediacion": true,
+     "no_inventar_aplicabilidad": true,
+     "salida_requiere_validacion": true
+    },
+    "riesgo_inherente": null,
+    "riesgo_residual": null,
+    "schema_version": "bedrock-triage-v1.3",
+    "severidad_tecnica": {
+     "score": 5.9,
+     "source": "nvd",
+     "vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:R/S:C/C:N/I:H/A:N",
+     "version": "3.1"
+    },
+    "tenant_id": "11111111-1111-1111-1111-111111111111"
+   },
+   "no_persistir_en_evaluaciones_v3": true,
+   "resultado": {
+    "accion_automatica_autorizada": false,
+    "advertencias": [
+     "CVSS_NO_VERIFICADO_DIARIAMENTE",
+     "ESTADO_DESPLIEGUE_DESCONOCIDO",
+     "ESTADO_NVD_NO_VALIDADO",
+     "EXPOSICION_SIN_EVIDENCIA",
+     "IMPACTO_CIA_NO_ESPECIFICADO",
+     "INVENTARIO_NO_VIGENTE",
+     "INVENTARIO_SIN_CONCILIAR",
+     "KEV_NO_VERIFICADO",
+     "PROBABILIDAD_ANUAL_SIN_APROBACION",
+     "TOLERANCIA_NO_APROBADA"
+    ],
+    "asset_code": "lock-orchestrator",
+    "case_id": "ce07ddae-d057-435d-ac21-bd990b4ffc8e",
+    "component_id": "3f0bb2b2-0f44-4264-a37c-7d55b637fe47",
+    "controles_descontados": [],
+    "cve": "CVE-2026-39817",
+    "dimensiones_cia_afectadas": [],
+    "entrada_sha256": "a0874bbc74aab6db1b9a050efaf66bd7620048fdcca474ef3158bacf41afb515",
+    "estado_aplicabilidad": "candidate",
+    "estado_evaluacion": "verification_required",
+    "evaluacion_sha256": "2e03800d33238499926a285663f757180e54089f4c06501236cbd15a12b43eb6",
+    "evaluado_en": "2026-11-19T02:08:10.116446+00:00",
+    "fuente": {
+     "manifest_sha256": "b96e0fbdb11ba035cd18f70bc3106050e87bd9735cf19e91d00c3194bb868f0a",
+     "snapshot": "curada-v3/2026/11/17/120044/manifest.json"
+    },
+    "metricas_cvss_disponibles": [
+     {
+      "score": 5.9,
+      "source": "nvd",
+      "vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:R/S:C/C:N/I:H/A:N",
+      "version": "3.1"
+     }
+    ],
+    "motor": "risk-engine-v1.3.0-aws-rds-unified",
+    "politica_sha256": "701634e2c3818dcf54072cd960d1ffde41e0e317334f9d0a31bd3d030233232a",
+    "prioridad_operativa": "P3",
+    "prioridad_tipo": "investigacion",
+    "razones": [
+     {
+      "evidencias": [],
+      "explicacion": "Probabilidad P×I del curso: horizonte 12 meses; EPSS solo es señal de explotación poblacional a 30 días. El cálculo sin probabilidad anual aprobada es tamizaje provisional.",
+      "regla": "HORIZONTE_DISTINTO_EPSS"
+     },
+     {
+      "evidencias": [],
+      "explicacion": "Estado de aplicabilidad: candidate (método: legacy_candidate).",
+      "regla": "APLICABILIDAD"
+     },
+     {
+      "evidencias": [],
+      "explicacion": "No se calcula riesgo confirmado sin demostrar aplicabilidad. La prioridad indicada es de investigación, no de remediación.",
+      "regla": "VERIFICACION_PREVIA"
+     }
+    ],
+    "requiere_revision_humana": true,
+    "riesgo_inherente": null,
+    "riesgo_residual": null,
+    "severidad_tecnica": {
+     "score": 5.9,
+     "source": "nvd",
+     "vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:R/S:C/C:N/I:H/A:N",
+     "version": "3.1"
+    },
+    "tenant_id": "11111111-1111-1111-1111-111111111111"
+   },
+   "contexto_agente": {
+    "metodo_deteccion": "cruce_exacto",
+    "hallazgo_estado": "pendiente_aprobacion_dueno",
+    "activo_tipo": "servicio",
+    "capa": "aplicacion",
+    "dominio_negocio": "ti",
+    "criticidad": 5,
+    "clasificacion_informacion": "confidencial",
+    "ambiente": "produccion",
+    "expuesto_internet": false,
+    "rto_minutes": 15,
+    "rpo_minutes": 5,
+    "vendor": "golang",
+    "producto_nombre": "go",
+    "componente_version": "1.22",
+    "descripcion": "A local user with low privileges may escalate privileges through a crafted configuration file processed by the runtime, affecting resources beyond the vulnerable component.",
+    "cwe": [
+     "CWE-269"
+    ],
+    "en_kev": false,
+    "kev_fecha_limite": null,
+    "uso_ransomware": null,
+    "epss": 0.0011,
+    "epss_percentil": 0.31,
+    "epss_fecha": "2026-11-18",
+    "dependientes_directos": [
+     {
+      "activo_codigo": "trip-service",
+      "criticidad": 4,
+      "ambiente": "produccion",
+      "tipo_dependencia": "ejecucion"
+     }
+    ]
+   },
+   "cruce": {
+    "prioridad_base": 3,
+    "prioridad_piso": null,
+    "prioridad_final": 3,
+    "puntaje_riesgo": 45.0
+   },
+   "evidencia_autenticada": {
+    "aplicabilidad": [],
+    "exposicion": null
+   }
+  },
+  {
+   "comparacion_legacy": {
+    "nota": "Escalas distintas: no convertir ni sobrescribir puntaje_riesgo 0-100.",
+    "prioridad_nueva": "P3",
+    "prioridad_previa": null,
+    "puntaje_previo_0_100": null,
+    "riesgo_residual_1_9": null
+   },
+   "dependencias": {
+    "dependientes_criticos": null,
+    "dependientes_directos": null,
+    "estado": "no_verificado",
+    "nota": "Relaciones no consultadas por falta de permisos. No afirmar que hay cero dependencias.",
+    "numero_dependientes": null,
+    "requiere_validacion_propagacion": true
+   },
+   "envio_agente": {
+    "accion_permitida": "investigar_evidencia",
+    "advertencias": [
+     "CVSS_NO_VERIFICADO_DIARIAMENTE",
+     "ESTADO_DESPLIEGUE_DESCONOCIDO",
+     "ESTADO_NVD_NO_VALIDADO",
+     "EXPOSICION_SIN_EVIDENCIA",
+     "IMPACTO_CIA_NO_ESPECIFICADO",
+     "INVENTARIO_NO_VIGENTE",
+     "INVENTARIO_SIN_CONCILIAR",
+     "KEV_NO_VERIFICADO",
+     "PROBABILIDAD_ANUAL_SIN_APROBACION",
+     "TOLERANCIA_NO_APROBADA"
+    ],
+    "asset_code": "trip-service",
+    "case_id": "ec0f9d8b-560a-4ec1-82dd-e7d7a27869cc",
+    "component_id": "62bed638-e79e-43c9-bb05-dd1bc77c1290",
+    "cve": "CVE-2026-42501",
+    "dependencias": {
+     "dependientes_criticos": null,
+     "dependientes_directos": null,
+     "estado": "no_verificado",
+     "nota": "Relaciones no consultadas por falta de permisos. No afirmar que hay cero dependencias.",
+     "numero_dependientes": null,
+     "requiere_validacion_propagacion": true
+    },
+    "estado_aplicabilidad": "candidate",
+    "estado_evaluacion": "verification_required",
+    "evaluacion_sha256": "35afd6c64da05f1350aaf2c05691c21085e046e01b6685507dd980ba71fe006d",
+    "evidencia_hash": "7ae2714875af1ebb10de4160555cd035c8f2e3f6c2a65418316f4d267f28acfc",
+    "motor": "risk-engine-v1.3.0-aws-rds-unified",
+    "politica_sha256": "701634e2c3818dcf54072cd960d1ffde41e0e317334f9d0a31bd3d030233232a",
+    "prioridad": "P3",
+    "prioridad_tipo": "investigacion",
+    "reglas": [
+     {
+      "codigo": "HORIZONTE_DISTINTO_EPSS",
+      "evidencias": [],
+      "explicacion": "Probabilidad P×I del curso: horizonte 12 meses; EPSS solo es señal de explotación poblacional a 30 días. El cálculo sin probabilidad anual aprobada es tamizaje provisional."
+     },
+     {
+      "codigo": "APLICABILIDAD",
+      "evidencias": [],
+      "explicacion": "Estado de aplicabilidad: candidate (método: legacy_candidate)."
+     },
+     {
+      "codigo": "VERIFICACION_PREVIA",
+      "evidencias": [],
+      "explicacion": "No se calcula riesgo confirmado sin demostrar aplicabilidad. La prioridad indicada es de investigación, no de remediación."
+     }
+    ],
+    "restricciones": {
+     "no_aceptar_riesgo": true,
+     "no_cambiar_prioridad": true,
+     "no_ejecutar_remediacion": true,
+     "no_inventar_aplicabilidad": true,
+     "salida_requiere_validacion": true
+    },
+    "riesgo_inherente": null,
+    "riesgo_residual": null,
+    "schema_version": "bedrock-triage-v1.3",
+    "severidad_tecnica": {
+     "score": 7.5,
+     "source": "nvd",
+     "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:H/I:H/A:H",
+     "version": "3.1"
+    },
+    "tenant_id": "11111111-1111-1111-1111-111111111111"
+   },
+   "no_persistir_en_evaluaciones_v3": true,
+   "resultado": {
+    "accion_automatica_autorizada": false,
+    "advertencias": [
+     "CVSS_NO_VERIFICADO_DIARIAMENTE",
+     "ESTADO_DESPLIEGUE_DESCONOCIDO",
+     "ESTADO_NVD_NO_VALIDADO",
+     "EXPOSICION_SIN_EVIDENCIA",
+     "IMPACTO_CIA_NO_ESPECIFICADO",
+     "INVENTARIO_NO_VIGENTE",
+     "INVENTARIO_SIN_CONCILIAR",
+     "KEV_NO_VERIFICADO",
+     "PROBABILIDAD_ANUAL_SIN_APROBACION",
+     "TOLERANCIA_NO_APROBADA"
+    ],
+    "asset_code": "trip-service",
+    "case_id": "ec0f9d8b-560a-4ec1-82dd-e7d7a27869cc",
+    "component_id": "62bed638-e79e-43c9-bb05-dd1bc77c1290",
+    "controles_descontados": [],
+    "cve": "CVE-2026-42501",
+    "dimensiones_cia_afectadas": [],
+    "entrada_sha256": "7ae2714875af1ebb10de4160555cd035c8f2e3f6c2a65418316f4d267f28acfc",
+    "estado_aplicabilidad": "candidate",
+    "estado_evaluacion": "verification_required",
+    "evaluacion_sha256": "35afd6c64da05f1350aaf2c05691c21085e046e01b6685507dd980ba71fe006d",
+    "evaluado_en": "2026-11-19T02:08:10.116446+00:00",
+    "fuente": {
+     "manifest_sha256": "b96e0fbdb11ba035cd18f70bc3106050e87bd9735cf19e91d00c3194bb868f0a",
+     "snapshot": "curada-v3/2026/11/17/120044/manifest.json"
+    },
+    "metricas_cvss_disponibles": [
+     {
+      "score": 7.5,
+      "source": "nvd",
+      "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:H/I:H/A:H",
+      "version": "3.1"
+     }
+    ],
+    "motor": "risk-engine-v1.3.0-aws-rds-unified",
+    "politica_sha256": "701634e2c3818dcf54072cd960d1ffde41e0e317334f9d0a31bd3d030233232a",
+    "prioridad_operativa": "P3",
+    "prioridad_tipo": "investigacion",
+    "razones": [
+     {
+      "evidencias": [],
+      "explicacion": "Probabilidad P×I del curso: horizonte 12 meses; EPSS solo es señal de explotación poblacional a 30 días. El cálculo sin probabilidad anual aprobada es tamizaje provisional.",
+      "regla": "HORIZONTE_DISTINTO_EPSS"
+     },
+     {
+      "evidencias": [],
+      "explicacion": "Estado de aplicabilidad: candidate (método: legacy_candidate).",
+      "regla": "APLICABILIDAD"
+     },
+     {
+      "evidencias": [],
+      "explicacion": "No se calcula riesgo confirmado sin demostrar aplicabilidad. La prioridad indicada es de investigación, no de remediación.",
+      "regla": "VERIFICACION_PREVIA"
+     }
+    ],
+    "requiere_revision_humana": true,
+    "riesgo_inherente": null,
+    "riesgo_residual": null,
+    "severidad_tecnica": {
+     "score": 7.5,
+     "source": "nvd",
+     "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:H/I:H/A:H",
+     "version": "3.1"
+    },
+    "tenant_id": "11111111-1111-1111-1111-111111111111"
+   },
+   "contexto_agente": {
+    "metodo_deteccion": "cruce_exacto",
+    "hallazgo_estado": "pendiente_aprobacion_dueno",
+    "activo_tipo": "servicio",
+    "capa": "aplicacion",
+    "dominio_negocio": "ti",
+    "criticidad": 4,
+    "clasificacion_informacion": "confidencial",
+    "ambiente": "produccion",
+    "expuesto_internet": false,
+    "rto_minutes": 30,
+    "rpo_minutes": 5,
+    "vendor": "golang",
+    "producto_nombre": "go",
+    "componente_version": "1.22",
+    "descripcion": "A crafted response processed by the HTTP client may lead to memory corruption when a user-initiated request reaches an attacker-controlled endpoint.",
+    "cwe": [
+     "CWE-787"
+    ],
+    "en_kev": false,
+    "kev_fecha_limite": null,
+    "uso_ransomware": null,
+    "epss": 0.0041,
+    "epss_percentil": 0.62,
+    "epss_fecha": "2026-11-18",
+    "dependientes_directos": [
+     {
+      "activo_codigo": "notifications",
+      "criticidad": 3,
+      "ambiente": "produccion",
+      "tipo_dependencia": "datos"
+     }
+    ]
+   },
+   "cruce": {
+    "prioridad_base": 2,
+    "prioridad_piso": null,
+    "prioridad_final": 2,
+    "puntaje_riesgo": 70.0
+   },
+   "evidencia_autenticada": {
+    "aplicabilidad": [],
+    "exposicion": null
+   }
+  }
+ ],
+ "fuentes_no_lectura": [],
+ "hallazgos_con_epss_posterior_a_corrida": 9,
+ "next_cursor_id": null,
+ "payloads_bedrock": [
+  {
+   "accion_permitida": "investigar_evidencia",
+   "advertencias": [
+    "CVSS_NO_VERIFICADO_DIARIAMENTE",
+    "ESTADO_DESPLIEGUE_DESCONOCIDO",
+    "ESTADO_NVD_NO_VALIDADO",
+    "EXPOSICION_SIN_EVIDENCIA",
+    "IMPACTO_CIA_NO_ESPECIFICADO",
+    "INVENTARIO_NO_VIGENTE",
+    "INVENTARIO_SIN_CONCILIAR",
+    "KEV_NO_VERIFICADO",
+    "PROBABILIDAD_ANUAL_SIN_APROBACION",
+    "TOLERANCIA_NO_APROBADA"
+   ],
+   "asset_code": "auth-oidc",
+   "case_id": "25cab4bf-0cb7-4085-a22c-34dd8649b22b",
+   "component_id": "1989f5e1-00a1-4f4b-bde3-366192afe68a",
+   "cve": "CVE-2026-111497",
+   "dependencias": {
+    "dependientes_criticos": null,
+    "dependientes_directos": null,
+    "estado": "no_verificado",
+    "nota": "Relaciones no consultadas por falta de permisos. No afirmar que hay cero dependencias.",
+    "numero_dependientes": null,
+    "requiere_validacion_propagacion": true
+   },
+   "estado_aplicabilidad": "candidate",
+   "estado_evaluacion": "verification_required",
+   "evaluacion_sha256": "3265df0ddb05b480845e6c84138c3f7ad5a6f9c581d6dc7d0eeecc92ee422789",
+   "evidencia_hash": "3a43497645e9df0c6681218c98c107567507cdbd72e74db806fd4f82b885d600",
+   "motor": "risk-engine-v1.3.0-aws-rds-unified",
+   "politica_sha256": "701634e2c3818dcf54072cd960d1ffde41e0e317334f9d0a31bd3d030233232a",
+   "prioridad": "P1",
+   "prioridad_tipo": "investigacion",
+   "reglas": [
+    {
+     "codigo": "HORIZONTE_DISTINTO_EPSS",
+     "evidencias": [],
+     "explicacion": "Probabilidad P×I del curso: horizonte 12 meses; EPSS solo es señal de explotación poblacional a 30 días. El cálculo sin probabilidad anual aprobada es tamizaje provisional."
+    },
+    {
+     "codigo": "APLICABILIDAD",
+     "evidencias": [],
+     "explicacion": "Estado de aplicabilidad: candidate (método: legacy_candidate)."
+    },
+    {
+     "codigo": "VERIFICACION_PREVIA",
+     "evidencias": [],
+     "explicacion": "No se calcula riesgo confirmado sin demostrar aplicabilidad. La prioridad indicada es de investigación, no de remediación."
+    }
+   ],
+   "restricciones": {
+    "no_aceptar_riesgo": true,
+    "no_cambiar_prioridad": true,
+    "no_ejecutar_remediacion": true,
+    "no_inventar_aplicabilidad": true,
+    "salida_requiere_validacion": true
+   },
+   "riesgo_inherente": null,
+   "riesgo_residual": null,
+   "schema_version": "bedrock-triage-v1.3",
+   "severidad_tecnica": {
+    "score": 9.2,
+    "source": "nvd",
+    "vector": "CVSS:4.0/AV:N/AC:L/AT:P/PR:N/UI:N/VC:H/VI:H/VA:H/SC:N/SI:N/SA:N/E:X/CR:X/IR:X/AR:X/MAV:X/MAC:X/MAT:X/MPR:X/MUI:X/MVC:X/MVI:X/MVA:X/MSC:X/MSI:X/MSA:X/S:X/AU:X/R:X/V:X/RE:X/U:X",
+    "version": "4.0"
+   },
+   "tenant_id": "11111111-1111-1111-1111-111111111111"
+  },
+  {
+   "accion_permitida": "investigar_evidencia",
+   "advertencias": [
+    "CVSS_NO_VERIFICADO_DIARIAMENTE",
+    "ESTADO_DESPLIEGUE_DESCONOCIDO",
+    "ESTADO_NVD_NO_VALIDADO",
+    "EXPOSICION_SIN_EVIDENCIA",
+    "IMPACTO_CIA_NO_ESPECIFICADO",
+    "INVENTARIO_NO_VIGENTE",
+    "INVENTARIO_SIN_CONCILIAR",
+    "KEV_NO_VERIFICADO",
+    "PROBABILIDAD_ANUAL_SIN_APROBACION",
+    "TOLERANCIA_NO_APROBADA"
+   ],
+   "asset_code": "lock-orchestrator",
+   "case_id": "39836575-823b-4f2a-93ac-2734cb781d24",
+   "component_id": "3f0bb2b2-0f44-4264-a37c-7d55b637fe47",
+   "cve": "CVE-2026-39819",
+   "dependencias": {
+    "dependientes_criticos": null,
+    "dependientes_directos": null,
+    "estado": "no_verificado",
+    "nota": "Relaciones no consultadas por falta de permisos. No afirmar que hay cero dependencias.",
+    "numero_dependientes": null,
+    "requiere_validacion_propagacion": true
+   },
+   "estado_aplicabilidad": "candidate",
+   "estado_evaluacion": "verification_required",
+   "evaluacion_sha256": "9a2d237313eacc432a74603411ebdaca97679cb5041fabb955946defd928e009",
+   "evidencia_hash": "85bc005f63c8318c0640a7e6aa387ba3cee9639a5ccaa919dc203d1d63d9f048",
+   "motor": "risk-engine-v1.3.0-aws-rds-unified",
+   "politica_sha256": "701634e2c3818dcf54072cd960d1ffde41e0e317334f9d0a31bd3d030233232a",
+   "prioridad": "P3",
+   "prioridad_tipo": "investigacion",
+   "reglas": [
+    {
+     "codigo": "HORIZONTE_DISTINTO_EPSS",
+     "evidencias": [],
+     "explicacion": "Probabilidad P×I del curso: horizonte 12 meses; EPSS solo es señal de explotación poblacional a 30 días. El cálculo sin probabilidad anual aprobada es tamizaje provisional."
+    },
+    {
+     "codigo": "APLICABILIDAD",
+     "evidencias": [],
+     "explicacion": "Estado de aplicabilidad: candidate (método: legacy_candidate)."
+    },
+    {
+     "codigo": "VERIFICACION_PREVIA",
+     "evidencias": [],
+     "explicacion": "No se calcula riesgo confirmado sin demostrar aplicabilidad. La prioridad indicada es de investigación, no de remediación."
+    }
+   ],
+   "restricciones": {
+    "no_aceptar_riesgo": true,
+    "no_cambiar_prioridad": true,
+    "no_ejecutar_remediacion": true,
+    "no_inventar_aplicabilidad": true,
+    "salida_requiere_validacion": true
+   },
+   "riesgo_inherente": null,
+   "riesgo_residual": null,
+   "schema_version": "bedrock-triage-v1.3",
+   "severidad_tecnica": {
+    "score": 5.3,
+    "source": "nvd",
+    "vector": "CVSS:3.1/AV:L/AC:H/PR:L/UI:N/S:U/C:L/I:H/A:N",
+    "version": "3.1"
+   },
+   "tenant_id": "11111111-1111-1111-1111-111111111111"
+  },
+  {
+   "accion_permitida": "investigar_evidencia",
+   "advertencias": [
+    "CVSS_NO_VERIFICADO_DIARIAMENTE",
+    "ESTADO_DESPLIEGUE_DESCONOCIDO",
+    "ESTADO_NVD_NO_VALIDADO",
+    "EXPOSICION_SIN_EVIDENCIA",
+    "IMPACTO_CIA_NO_ESPECIFICADO",
+    "INVENTARIO_NO_VIGENTE",
+    "INVENTARIO_SIN_CONCILIAR",
+    "KEV_NO_VERIFICADO",
+    "PROBABILIDAD_ANUAL_SIN_APROBACION",
+    "TOLERANCIA_NO_APROBADA"
+   ],
+   "asset_code": "trip-service",
+   "case_id": "53616cce-e721-4f80-a4e1-0df03349b980",
+   "component_id": "62bed638-e79e-43c9-bb05-dd1bc77c1290",
+   "cve": "CVE-2026-39819",
+   "dependencias": {
+    "dependientes_criticos": null,
+    "dependientes_directos": null,
+    "estado": "no_verificado",
+    "nota": "Relaciones no consultadas por falta de permisos. No afirmar que hay cero dependencias.",
+    "numero_dependientes": null,
+    "requiere_validacion_propagacion": true
+   },
+   "estado_aplicabilidad": "candidate",
+   "estado_evaluacion": "verification_required",
+   "evaluacion_sha256": "2b1f2234f107a0d3cc795774938f97cb95ce4e5503dbbbbee35f4aeb48b993a8",
+   "evidencia_hash": "4bb7c2160fe223b12985717804f972db3a184c3a0e3d68ff6ded2d2d79ff38cb",
+   "motor": "risk-engine-v1.3.0-aws-rds-unified",
+   "politica_sha256": "701634e2c3818dcf54072cd960d1ffde41e0e317334f9d0a31bd3d030233232a",
+   "prioridad": "P3",
+   "prioridad_tipo": "investigacion",
+   "reglas": [
+    {
+     "codigo": "HORIZONTE_DISTINTO_EPSS",
+     "evidencias": [],
+     "explicacion": "Probabilidad P×I del curso: horizonte 12 meses; EPSS solo es señal de explotación poblacional a 30 días. El cálculo sin probabilidad anual aprobada es tamizaje provisional."
+    },
+    {
+     "codigo": "APLICABILIDAD",
+     "evidencias": [],
+     "explicacion": "Estado de aplicabilidad: candidate (método: legacy_candidate)."
+    },
+    {
+     "codigo": "VERIFICACION_PREVIA",
+     "evidencias": [],
+     "explicacion": "No se calcula riesgo confirmado sin demostrar aplicabilidad. La prioridad indicada es de investigación, no de remediación."
+    }
+   ],
+   "restricciones": {
+    "no_aceptar_riesgo": true,
+    "no_cambiar_prioridad": true,
+    "no_ejecutar_remediacion": true,
+    "no_inventar_aplicabilidad": true,
+    "salida_requiere_validacion": true
+   },
+   "riesgo_inherente": null,
+   "riesgo_residual": null,
+   "schema_version": "bedrock-triage-v1.3",
+   "severidad_tecnica": {
+    "score": 5.3,
+    "source": "nvd",
+    "vector": "CVSS:3.1/AV:L/AC:H/PR:L/UI:N/S:U/C:L/I:H/A:N",
+    "version": "3.1"
+   },
+   "tenant_id": "11111111-1111-1111-1111-111111111111"
+  },
+  {
+   "accion_permitida": "investigar_evidencia",
+   "advertencias": [
+    "CVSS_NO_VERIFICADO_DIARIAMENTE",
+    "ESTADO_DESPLIEGUE_DESCONOCIDO",
+    "ESTADO_NVD_NO_VALIDADO",
+    "EXPOSICION_SIN_EVIDENCIA",
+    "IMPACTO_CIA_NO_ESPECIFICADO",
+    "INVENTARIO_NO_VIGENTE",
+    "INVENTARIO_SIN_CONCILIAR",
+    "KEV_NO_VERIFICADO",
+    "PROBABILIDAD_ANUAL_SIN_APROBACION",
+    "TOLERANCIA_NO_APROBADA"
+   ],
+   "asset_code": "lock-orchestrator",
+   "case_id": "5c5bbee0-8f44-4d61-a54c-a4ee344bab7e",
+   "component_id": "3f0bb2b2-0f44-4264-a37c-7d55b637fe47",
+   "cve": "CVE-2026-42501",
+   "dependencias": {
+    "dependientes_criticos": null,
+    "dependientes_directos": null,
+    "estado": "no_verificado",
+    "nota": "Relaciones no consultadas por falta de permisos. No afirmar que hay cero dependencias.",
+    "numero_dependientes": null,
+    "requiere_validacion_propagacion": true
+   },
+   "estado_aplicabilidad": "candidate",
+   "estado_evaluacion": "verification_required",
+   "evaluacion_sha256": "bc2a9d9310836a44132598fc6a23e117f586527db0210da54b18824259602ca8",
+   "evidencia_hash": "4a9b85a5b0477ae6ca3038c9c40d4ceff61e4d11bce229cb9ccaaaefefb471df",
+   "motor": "risk-engine-v1.3.0-aws-rds-unified",
+   "politica_sha256": "701634e2c3818dcf54072cd960d1ffde41e0e317334f9d0a31bd3d030233232a",
+   "prioridad": "P3",
+   "prioridad_tipo": "investigacion",
+   "reglas": [
+    {
+     "codigo": "HORIZONTE_DISTINTO_EPSS",
+     "evidencias": [],
+     "explicacion": "Probabilidad P×I del curso: horizonte 12 meses; EPSS solo es señal de explotación poblacional a 30 días. El cálculo sin probabilidad anual aprobada es tamizaje provisional."
+    },
+    {
+     "codigo": "APLICABILIDAD",
+     "evidencias": [],
+     "explicacion": "Estado de aplicabilidad: candidate (método: legacy_candidate)."
+    },
+    {
+     "codigo": "VERIFICACION_PREVIA",
+     "evidencias": [],
+     "explicacion": "No se calcula riesgo confirmado sin demostrar aplicabilidad. La prioridad indicada es de investigación, no de remediación."
+    }
+   ],
+   "restricciones": {
+    "no_aceptar_riesgo": true,
+    "no_cambiar_prioridad": true,
+    "no_ejecutar_remediacion": true,
+    "no_inventar_aplicabilidad": true,
+    "salida_requiere_validacion": true
+   },
+   "riesgo_inherente": null,
+   "riesgo_residual": null,
+   "schema_version": "bedrock-triage-v1.3",
+   "severidad_tecnica": {
+    "score": 7.5,
+    "source": "nvd",
+    "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:H/I:H/A:H",
+    "version": "3.1"
+   },
+   "tenant_id": "11111111-1111-1111-1111-111111111111"
+  },
+  {
+   "accion_permitida": "investigar_evidencia",
+   "advertencias": [
+    "CVSS_NO_VERIFICADO_DIARIAMENTE",
+    "ESTADO_DESPLIEGUE_DESCONOCIDO",
+    "ESTADO_NVD_NO_VALIDADO",
+    "EXPOSICION_SIN_EVIDENCIA",
+    "IMPACTO_CIA_NO_ESPECIFICADO",
+    "INVENTARIO_NO_VIGENTE",
+    "INVENTARIO_SIN_CONCILIAR",
+    "KEV_NO_VERIFICADO",
+    "PROBABILIDAD_ANUAL_SIN_APROBACION",
+    "TOLERANCIA_NO_APROBADA"
+   ],
+   "asset_code": "alb-envoy",
+   "case_id": "686e096f-4987-4f5a-a694-de0abdc57840",
+   "component_id": "3aabf16b-534b-44d3-b7f4-b3e8bde6e777",
+   "cve": "CVE-2026-111497",
+   "dependencias": {
+    "dependientes_criticos": null,
+    "dependientes_directos": null,
+    "estado": "no_verificado",
+    "nota": "Relaciones no consultadas por falta de permisos. No afirmar que hay cero dependencias.",
+    "numero_dependientes": null,
+    "requiere_validacion_propagacion": true
+   },
+   "estado_aplicabilidad": "candidate",
+   "estado_evaluacion": "verification_required",
+   "evaluacion_sha256": "f64c45fd495f9b675a7025f06eaa9472964d6dc8c4bfa7bf485edd8101080052",
+   "evidencia_hash": "75b53ca94af8c5868b6fe0e998a05cd82248b12657c5797e61e8133c6fd8c9be",
+   "motor": "risk-engine-v1.3.0-aws-rds-unified",
+   "politica_sha256": "701634e2c3818dcf54072cd960d1ffde41e0e317334f9d0a31bd3d030233232a",
+   "prioridad": "P1",
+   "prioridad_tipo": "investigacion",
+   "reglas": [
+    {
+     "codigo": "HORIZONTE_DISTINTO_EPSS",
+     "evidencias": [],
+     "explicacion": "Probabilidad P×I del curso: horizonte 12 meses; EPSS solo es señal de explotación poblacional a 30 días. El cálculo sin probabilidad anual aprobada es tamizaje provisional."
+    },
+    {
+     "codigo": "APLICABILIDAD",
+     "evidencias": [],
+     "explicacion": "Estado de aplicabilidad: candidate (método: legacy_candidate)."
+    },
+    {
+     "codigo": "VERIFICACION_PREVIA",
+     "evidencias": [],
+     "explicacion": "No se calcula riesgo confirmado sin demostrar aplicabilidad. La prioridad indicada es de investigación, no de remediación."
+    }
+   ],
+   "restricciones": {
+    "no_aceptar_riesgo": true,
+    "no_cambiar_prioridad": true,
+    "no_ejecutar_remediacion": true,
+    "no_inventar_aplicabilidad": true,
+    "salida_requiere_validacion": true
+   },
+   "riesgo_inherente": null,
+   "riesgo_residual": null,
+   "schema_version": "bedrock-triage-v1.3",
+   "severidad_tecnica": {
+    "score": 9.2,
+    "source": "nvd",
+    "vector": "CVSS:4.0/AV:N/AC:L/AT:P/PR:N/UI:N/VC:H/VI:H/VA:H/SC:N/SI:N/SA:N/E:X/CR:X/IR:X/AR:X/MAV:X/MAC:X/MAT:X/MPR:X/MUI:X/MVC:X/MVI:X/MVA:X/MSC:X/MSI:X/MSA:X/S:X/AU:X/R:X/V:X/RE:X/U:X",
+    "version": "4.0"
+   },
+   "tenant_id": "11111111-1111-1111-1111-111111111111"
+  },
+  {
+   "accion_permitida": "investigar_evidencia",
+   "advertencias": [
+    "CVSS_NO_VERIFICADO_DIARIAMENTE",
+    "ESTADO_DESPLIEGUE_DESCONOCIDO",
+    "ESTADO_NVD_NO_VALIDADO",
+    "EXPOSICION_SIN_EVIDENCIA",
+    "IMPACTO_CIA_NO_ESPECIFICADO",
+    "INVENTARIO_NO_VIGENTE",
+    "INVENTARIO_SIN_CONCILIAR",
+    "KEV_NO_VERIFICADO",
+    "PROBABILIDAD_ANUAL_SIN_APROBACION",
+    "TOLERANCIA_NO_APROBADA"
+   ],
+   "asset_code": "trip-service",
+   "case_id": "6ae6a29e-9a8b-46b2-a281-60ad37ab558c",
+   "component_id": "62bed638-e79e-43c9-bb05-dd1bc77c1290",
+   "cve": "CVE-2026-39817",
+   "dependencias": {
+    "dependientes_criticos": null,
+    "dependientes_directos": null,
+    "estado": "no_verificado",
+    "nota": "Relaciones no consultadas por falta de permisos. No afirmar que hay cero dependencias.",
+    "numero_dependientes": null,
+    "requiere_validacion_propagacion": true
+   },
+   "estado_aplicabilidad": "candidate",
+   "estado_evaluacion": "verification_required",
+   "evaluacion_sha256": "f4da035510ce950922c0f4df5352e3f90dba07579e2ae7a67176b19d3c79c521",
+   "evidencia_hash": "12a7b22da08ba14461dd86bab5a11f47a7fab48cd6a3888579e827e1effdcc4a",
+   "motor": "risk-engine-v1.3.0-aws-rds-unified",
+   "politica_sha256": "701634e2c3818dcf54072cd960d1ffde41e0e317334f9d0a31bd3d030233232a",
+   "prioridad": "P3",
+   "prioridad_tipo": "investigacion",
+   "reglas": [
+    {
+     "codigo": "HORIZONTE_DISTINTO_EPSS",
+     "evidencias": [],
+     "explicacion": "Probabilidad P×I del curso: horizonte 12 meses; EPSS solo es señal de explotación poblacional a 30 días. El cálculo sin probabilidad anual aprobada es tamizaje provisional."
+    },
+    {
+     "codigo": "APLICABILIDAD",
+     "evidencias": [],
+     "explicacion": "Estado de aplicabilidad: candidate (método: legacy_candidate)."
+    },
+    {
+     "codigo": "VERIFICACION_PREVIA",
+     "evidencias": [],
+     "explicacion": "No se calcula riesgo confirmado sin demostrar aplicabilidad. La prioridad indicada es de investigación, no de remediación."
+    }
+   ],
+   "restricciones": {
+    "no_aceptar_riesgo": true,
+    "no_cambiar_prioridad": true,
+    "no_ejecutar_remediacion": true,
+    "no_inventar_aplicabilidad": true,
+    "salida_requiere_validacion": true
+   },
+   "riesgo_inherente": null,
+   "riesgo_residual": null,
+   "schema_version": "bedrock-triage-v1.3",
+   "severidad_tecnica": {
+    "score": 5.9,
+    "source": "nvd",
+    "vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:R/S:C/C:N/I:H/A:N",
+    "version": "3.1"
+   },
+   "tenant_id": "11111111-1111-1111-1111-111111111111"
+  },
+  {
+   "accion_permitida": "investigar_evidencia",
+   "advertencias": [
+    "CVSS_NO_VERIFICADO_DIARIAMENTE",
+    "ESTADO_DESPLIEGUE_DESCONOCIDO",
+    "ESTADO_NVD_NO_VALIDADO",
+    "EXPOSICION_SIN_EVIDENCIA",
+    "IMPACTO_CIA_NO_ESPECIFICADO",
+    "INVENTARIO_NO_VIGENTE",
+    "INVENTARIO_SIN_CONCILIAR",
+    "KEV_NO_VERIFICADO",
+    "PROBABILIDAD_ANUAL_SIN_APROBACION",
+    "TOLERANCIA_NO_APROBADA"
+   ],
+   "asset_code": "notifications",
+   "case_id": "c2eacbd1-d337-4711-8f19-4987472b06d8",
+   "component_id": "2103bf6a-7ab9-4fb5-b895-98f1e5d46f08",
+   "cve": "CVE-2026-111497",
+   "dependencias": {
+    "dependientes_criticos": null,
+    "dependientes_directos": null,
+    "estado": "no_verificado",
+    "nota": "Relaciones no consultadas por falta de permisos. No afirmar que hay cero dependencias.",
+    "numero_dependientes": null,
+    "requiere_validacion_propagacion": true
+   },
+   "estado_aplicabilidad": "candidate",
+   "estado_evaluacion": "verification_required",
+   "evaluacion_sha256": "55e28e234b18163d0e41a5725ba22294ecce50bca3ecb3b8d044ad7f4c1d2b9a",
+   "evidencia_hash": "76998b6e093af1c2334a1fa0e00c02b4d4374a0919623a48e9e1c31a591ebcef",
+   "motor": "risk-engine-v1.3.0-aws-rds-unified",
+   "politica_sha256": "701634e2c3818dcf54072cd960d1ffde41e0e317334f9d0a31bd3d030233232a",
+   "prioridad": "P2",
+   "prioridad_tipo": "investigacion",
+   "reglas": [
+    {
+     "codigo": "HORIZONTE_DISTINTO_EPSS",
+     "evidencias": [],
+     "explicacion": "Probabilidad P×I del curso: horizonte 12 meses; EPSS solo es señal de explotación poblacional a 30 días. El cálculo sin probabilidad anual aprobada es tamizaje provisional."
+    },
+    {
+     "codigo": "APLICABILIDAD",
+     "evidencias": [],
+     "explicacion": "Estado de aplicabilidad: candidate (método: legacy_candidate)."
+    },
+    {
+     "codigo": "VERIFICACION_PREVIA",
+     "evidencias": [],
+     "explicacion": "No se calcula riesgo confirmado sin demostrar aplicabilidad. La prioridad indicada es de investigación, no de remediación."
+    }
+   ],
+   "restricciones": {
+    "no_aceptar_riesgo": true,
+    "no_cambiar_prioridad": true,
+    "no_ejecutar_remediacion": true,
+    "no_inventar_aplicabilidad": true,
+    "salida_requiere_validacion": true
+   },
+   "riesgo_inherente": null,
+   "riesgo_residual": null,
+   "schema_version": "bedrock-triage-v1.3",
+   "severidad_tecnica": {
+    "score": 9.2,
+    "source": "nvd",
+    "vector": "CVSS:4.0/AV:N/AC:L/AT:P/PR:N/UI:N/VC:H/VI:H/VA:H/SC:N/SI:N/SA:N/E:X/CR:X/IR:X/AR:X/MAV:X/MAC:X/MAT:X/MPR:X/MUI:X/MVC:X/MVI:X/MVA:X/MSC:X/MSI:X/MSA:X/S:X/AU:X/R:X/V:X/RE:X/U:X",
+    "version": "4.0"
+   },
+   "tenant_id": "11111111-1111-1111-1111-111111111111"
+  },
+  {
+   "accion_permitida": "investigar_evidencia",
+   "advertencias": [
+    "CVSS_NO_VERIFICADO_DIARIAMENTE",
+    "ESTADO_DESPLIEGUE_DESCONOCIDO",
+    "ESTADO_NVD_NO_VALIDADO",
+    "EXPOSICION_SIN_EVIDENCIA",
+    "IMPACTO_CIA_NO_ESPECIFICADO",
+    "INVENTARIO_NO_VIGENTE",
+    "INVENTARIO_SIN_CONCILIAR",
+    "KEV_NO_VERIFICADO",
+    "PROBABILIDAD_ANUAL_SIN_APROBACION",
+    "TOLERANCIA_NO_APROBADA"
+   ],
+   "asset_code": "lock-orchestrator",
+   "case_id": "ce07ddae-d057-435d-ac21-bd990b4ffc8e",
+   "component_id": "3f0bb2b2-0f44-4264-a37c-7d55b637fe47",
+   "cve": "CVE-2026-39817",
+   "dependencias": {
+    "dependientes_criticos": null,
+    "dependientes_directos": null,
+    "estado": "no_verificado",
+    "nota": "Relaciones no consultadas por falta de permisos. No afirmar que hay cero dependencias.",
+    "numero_dependientes": null,
+    "requiere_validacion_propagacion": true
+   },
+   "estado_aplicabilidad": "candidate",
+   "estado_evaluacion": "verification_required",
+   "evaluacion_sha256": "2e03800d33238499926a285663f757180e54089f4c06501236cbd15a12b43eb6",
+   "evidencia_hash": "a0874bbc74aab6db1b9a050efaf66bd7620048fdcca474ef3158bacf41afb515",
+   "motor": "risk-engine-v1.3.0-aws-rds-unified",
+   "politica_sha256": "701634e2c3818dcf54072cd960d1ffde41e0e317334f9d0a31bd3d030233232a",
+   "prioridad": "P3",
+   "prioridad_tipo": "investigacion",
+   "reglas": [
+    {
+     "codigo": "HORIZONTE_DISTINTO_EPSS",
+     "evidencias": [],
+     "explicacion": "Probabilidad P×I del curso: horizonte 12 meses; EPSS solo es señal de explotación poblacional a 30 días. El cálculo sin probabilidad anual aprobada es tamizaje provisional."
+    },
+    {
+     "codigo": "APLICABILIDAD",
+     "evidencias": [],
+     "explicacion": "Estado de aplicabilidad: candidate (método: legacy_candidate)."
+    },
+    {
+     "codigo": "VERIFICACION_PREVIA",
+     "evidencias": [],
+     "explicacion": "No se calcula riesgo confirmado sin demostrar aplicabilidad. La prioridad indicada es de investigación, no de remediación."
+    }
+   ],
+   "restricciones": {
+    "no_aceptar_riesgo": true,
+    "no_cambiar_prioridad": true,
+    "no_ejecutar_remediacion": true,
+    "no_inventar_aplicabilidad": true,
+    "salida_requiere_validacion": true
+   },
+   "riesgo_inherente": null,
+   "riesgo_residual": null,
+   "schema_version": "bedrock-triage-v1.3",
+   "severidad_tecnica": {
+    "score": 5.9,
+    "source": "nvd",
+    "vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:R/S:C/C:N/I:H/A:N",
+    "version": "3.1"
+   },
+   "tenant_id": "11111111-1111-1111-1111-111111111111"
+  },
+  {
+   "accion_permitida": "investigar_evidencia",
+   "advertencias": [
+    "CVSS_NO_VERIFICADO_DIARIAMENTE",
+    "ESTADO_DESPLIEGUE_DESCONOCIDO",
+    "ESTADO_NVD_NO_VALIDADO",
+    "EXPOSICION_SIN_EVIDENCIA",
+    "IMPACTO_CIA_NO_ESPECIFICADO",
+    "INVENTARIO_NO_VIGENTE",
+    "INVENTARIO_SIN_CONCILIAR",
+    "KEV_NO_VERIFICADO",
+    "PROBABILIDAD_ANUAL_SIN_APROBACION",
+    "TOLERANCIA_NO_APROBADA"
+   ],
+   "asset_code": "trip-service",
+   "case_id": "ec0f9d8b-560a-4ec1-82dd-e7d7a27869cc",
+   "component_id": "62bed638-e79e-43c9-bb05-dd1bc77c1290",
+   "cve": "CVE-2026-42501",
+   "dependencias": {
+    "dependientes_criticos": null,
+    "dependientes_directos": null,
+    "estado": "no_verificado",
+    "nota": "Relaciones no consultadas por falta de permisos. No afirmar que hay cero dependencias.",
+    "numero_dependientes": null,
+    "requiere_validacion_propagacion": true
+   },
+   "estado_aplicabilidad": "candidate",
+   "estado_evaluacion": "verification_required",
+   "evaluacion_sha256": "35afd6c64da05f1350aaf2c05691c21085e046e01b6685507dd980ba71fe006d",
+   "evidencia_hash": "7ae2714875af1ebb10de4160555cd035c8f2e3f6c2a65418316f4d267f28acfc",
+   "motor": "risk-engine-v1.3.0-aws-rds-unified",
+   "politica_sha256": "701634e2c3818dcf54072cd960d1ffde41e0e317334f9d0a31bd3d030233232a",
+   "prioridad": "P3",
+   "prioridad_tipo": "investigacion",
+   "reglas": [
+    {
+     "codigo": "HORIZONTE_DISTINTO_EPSS",
+     "evidencias": [],
+     "explicacion": "Probabilidad P×I del curso: horizonte 12 meses; EPSS solo es señal de explotación poblacional a 30 días. El cálculo sin probabilidad anual aprobada es tamizaje provisional."
+    },
+    {
+     "codigo": "APLICABILIDAD",
+     "evidencias": [],
+     "explicacion": "Estado de aplicabilidad: candidate (método: legacy_candidate)."
+    },
+    {
+     "codigo": "VERIFICACION_PREVIA",
+     "evidencias": [],
+     "explicacion": "No se calcula riesgo confirmado sin demostrar aplicabilidad. La prioridad indicada es de investigación, no de remediación."
+    }
+   ],
+   "restricciones": {
+    "no_aceptar_riesgo": true,
+    "no_cambiar_prioridad": true,
+    "no_ejecutar_remediacion": true,
+    "no_inventar_aplicabilidad": true,
+    "salida_requiere_validacion": true
+   },
+   "riesgo_inherente": null,
+   "riesgo_residual": null,
+   "schema_version": "bedrock-triage-v1.3",
+   "severidad_tecnica": {
+    "score": 7.5,
+    "source": "nvd",
+    "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:H/I:H/A:H",
+    "version": "3.1"
+   },
+   "tenant_id": "11111111-1111-1111-1111-111111111111"
+  }
+ ],
+ "schema_version": "risk-engine-aws-v1.3.3",
+ "snapshot": {
+  "s3_clave": "curada-v3/2026/11/17/120044/manifest.json",
+  "s3_sha256": "b96e0fbdb11ba035cd18f70bc3106050e87bd9735cf19e91d00c3194bb868f0a"
+ },
+ "source_run_finalized_at": "2026-11-17T12:00:51.052712+00:00",
+ "tenant_id": "11111111-1111-1111-1111-111111111111",
+ "total_agente": 9,
+ "total_errores": 0,
+ "total_evaluados": 9,
+ "total_leidos": 9,
+ "_simulado": "contexto_agente, cruce y dependencias ESTIMADOS desde la arquitectura; el resto es la salida real v1.3.2.1 de la corrida 2f9ed42d",
+ "evidencia_bd_habilitada": false
+}
