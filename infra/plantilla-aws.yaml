@@ -12,8 +12,7 @@ Parameters:
   ClaveRDS:
     Type: String
     NoEcho: true
-    Description: Clave maestra de la base RDS. Cambiarla en el deploy con --parameter-overrides ClaveRDS=...
-    Default: "CambiaEstaClave123"
+    Description: Clave maestra de la base RDS. Siempre se pasa en el deploy (desplegar.sh la lee de .env.local); sin valor por defecto.
     MinLength: 8
   ClaveUsuarios:
     Type: String
@@ -27,9 +26,9 @@ Parameters:
     Description: Version del paquete lti-nucleo-<version>.zip en s3://<bucket curada>/artefactos/. Cambiala cada vez que subas un paquete nuevo.
   ArnSlack:
     Type: String
-    Default: arn:aws:lambda:us-east-2:208805233219:function:Iti-SlackConection1
+    Default: arn:aws:lambda:us-east-2:208805233219:function:lti-notificador-slack
     AllowedPattern: "arn:aws:lambda:[a-z0-9-]+:[0-9]{12}:function:[A-Za-z0-9_-]+"
-    Description: Lambda de Slack que ya esta en AWS. Recibe {"title","body"} y publica en el canal.
+    Description: Emisor de Slack v2 (lti-notificador-slack, fuera del stack). Recibe {"mensajes":[{ids,title,body}]}.
   EmailAdminPanel:
     Type: String
     AllowedPattern: "[^@ ]+@[^@ ]+\\.[^@ ]+"
@@ -145,6 +144,7 @@ Resources:
       IpProtocol: tcp
       FromPort: 5432
       ToPort: 5432
+      Description: "Lambdas de la VPC (SgLambdaRDS)"
       SourceSecurityGroupId: !Ref SgLambdaRDS
 
   ReglaRDSDesdeMiIP:
@@ -154,6 +154,7 @@ Resources:
       IpProtocol: tcp
       FromPort: 5432
       ToPort: 5432
+      Description: "Administracion: IP fija del equipo (IP_PERMITIDA en .env.local)"
       CidrIp: !Ref IPPermitida
 
   ReglaRDSDesdeCMDB:
@@ -163,11 +164,14 @@ Resources:
       IpProtocol: tcp
       FromPort: 5432
       ToPort: 5432
+      Description: "CMDB Neo4j/Cartography (SgCMDB)"
       SourceSecurityGroupId: !Ref SgCMDB
 
   BaseDatosRDS:
     Type: AWS::RDS::DBInstance
-    DeletionPolicy: Delete
+    # Snapshot: si alguien borra el stack, la base no desaparece sin respaldo.
+    DeletionPolicy: Snapshot
+    UpdateReplacePolicy: Snapshot
     Properties:
       Tags:
         - Key: activo
@@ -185,8 +189,12 @@ Resources:
         - !Ref SgRDS
       PubliclyAccessible: true
       MultiAZ: false
-      BackupRetentionPeriod: 1
-      DeletionProtection: false
+      # Cambios aplicados SIN reemplazo ni reinicio (verificar en el change set que Replacement = False):
+      EnableIAMDatabaseAuthentication: true   # ya activo desde el 19-nov (R3): formaliza la deriva
+      BackupRetentionPeriod: 7                # de 1 a 7 dias: sin interrupcion (solo 0 <-> N la provoca)
+      DeletionProtection: true
+      # NO agregar StorageEncrypted aqui: cambiarlo REEMPLAZA la instancia (base nueva y vacia).
+      # El cifrado en reposo se hace despues de la demo con instantanea cifrada + restauracion.
 
   BucketRaw:
     Type: AWS::S3::Bucket
@@ -573,14 +581,16 @@ Resources:
               - Effect: Allow
                 Action: lambda:InvokeFunction
                 Resource:
+                  # Solo lo que invoca el flujo v3 (minimo privilegio): sin api-sistema, sin v1, sin Iti-SlackConection1
                   - !GetAtt FuncionConector.Arn
                   - !GetAtt FuncionEPSS.Arn
                   - !GetAtt FuncionOSV.Arn
                   - !GetAtt FuncionNormalizacionCurada.Arn
-                  - !GetAtt FuncionCarga.Arn
-                  - !GetAtt FuncionCruceRDS.Arn
                   - !GetAtt FuncionApiDatos.Arn
-                  - !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${NombreProyecto}-api-sistema"
+                  - !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${NombreProyecto}-carga-vulnerabilidades-v2"
+                  - !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${NombreProyecto}-cruce-rds-v2"
+                  - !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${NombreProyecto}-motor-contextual-shadow"
+                  - !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${NombreProyecto}-notificador-rds"
                   - !Ref ArnSlack
 
   FlujoDiario:
@@ -591,83 +601,568 @@ Resources:
       DefinitionString: !Sub
         - |
           {
-            "Comment": "Lyft Threat Intelligence: ingesta de las fuentes que pida la entrada (por defecto todas), carga, cruce y foto diaria de metricas",
+            "Comment": "Lyft Threat Intelligence: ingesta selectiva, carga v2, cruce v2, motor contextual (sombra), metricas y notificacion a Slack v2 desde RDS (alertas P1-P3 en cada corrida; resumen de prioridad baja solo con resumen=true)",
             "StartAt": "Ingesta",
             "States": {
               "Ingesta": {
                 "Type": "Parallel",
                 "ResultPath": null,
-                "Next": "Normalizacion",
+                "Next": "RutaResumen",
                 "Branches": [
-                  {"StartAt": "SiNvdKev", "States": {
-                    "SiNvdKev": {"Type": "Choice", "Choices": [{"And": [{"Variable": "$.nvd", "IsPresent": true}, {"Variable": "$.nvd", "BooleanEquals": false}], "Next": "NvdKevOmitida"}], "Default": "NvdKev"},
-                    "NvdKev": {"Type": "Task", "Resource": "arn:aws:states:::lambda:invoke",
-                      "Parameters": {"FunctionName": "${ArnNvd}", "Payload": {}}, "TimeoutSeconds": 360,
-                      "Retry": [{"ErrorEquals": ["States.ALL"], "IntervalSeconds": 30, "MaxAttempts": 1}],
-                      "Catch": [{"ErrorEquals": ["States.ALL"], "Next": "NvdKevOmitida"}], "End": true},
-                    "NvdKevOmitida": {"Type": "Pass", "End": true}}},
-                  {"StartAt": "SiEpss", "States": {
-                    "SiEpss": {"Type": "Choice", "Choices": [{"And": [{"Variable": "$.epss", "IsPresent": true}, {"Variable": "$.epss", "BooleanEquals": false}], "Next": "EpssOmitida"}], "Default": "Epss"},
-                    "Epss": {"Type": "Task", "Resource": "arn:aws:states:::lambda:invoke",
-                      "Parameters": {"FunctionName": "${ArnEpss}", "Payload": {}}, "TimeoutSeconds": 360,
-                      "Retry": [{"ErrorEquals": ["States.ALL"], "IntervalSeconds": 30, "MaxAttempts": 1}],
-                      "Catch": [{"ErrorEquals": ["States.ALL"], "Next": "EpssOmitida"}], "End": true},
-                    "EpssOmitida": {"Type": "Pass", "End": true}}},
-                  {"StartAt": "SiOsvGhsa", "States": {
-                    "SiOsvGhsa": {"Type": "Choice", "Choices": [{"And": [{"Variable": "$.osv", "IsPresent": true}, {"Variable": "$.osv", "BooleanEquals": false}], "Next": "OsvGhsaOmitida"}], "Default": "OsvGhsa"},
-                    "OsvGhsa": {"Type": "Task", "Resource": "arn:aws:states:::lambda:invoke",
-                      "Parameters": {"FunctionName": "${ArnOsv}", "Payload": {}}, "TimeoutSeconds": 360,
-                      "Retry": [{"ErrorEquals": ["States.ALL"], "IntervalSeconds": 30, "MaxAttempts": 1}],
-                      "Catch": [{"ErrorEquals": ["States.ALL"], "Next": "OsvGhsaOmitida"}], "End": true},
-                    "OsvGhsaOmitida": {"Type": "Pass", "End": true}}}
+                  {
+                    "StartAt": "SiNvdKev",
+                    "States": {
+                      "SiNvdKev": {
+                        "Type": "Choice",
+                        "Choices": [
+                          {
+                            "And": [
+                              {
+                                "Variable": "$.nvd",
+                                "IsPresent": true
+                              },
+                              {
+                                "Variable": "$.nvd",
+                                "BooleanEquals": false
+                              }
+                            ],
+                            "Next": "NvdKevOmitida"
+                          }
+                        ],
+                        "Default": "NvdKev"
+                      },
+                      "NvdKev": {
+                        "Type": "Task",
+                        "Resource": "arn:aws:states:::lambda:invoke",
+                        "Parameters": {
+                          "FunctionName": "${ArnNvd}",
+                          "Payload": {}
+                        },
+                        "TimeoutSeconds": 360,
+                        "Retry": [
+                          {
+                            "ErrorEquals": [
+                              "States.ALL"
+                            ],
+                            "IntervalSeconds": 30,
+                            "MaxAttempts": 1
+                          }
+                        ],
+                        "Catch": [
+                          {
+                            "ErrorEquals": [
+                              "States.ALL"
+                            ],
+                            "Next": "NvdKevOmitida"
+                          }
+                        ],
+                        "End": true
+                      },
+                      "NvdKevOmitida": {
+                        "Type": "Pass",
+                        "End": true
+                      }
+                    }
+                  },
+                  {
+                    "StartAt": "SiEpss",
+                    "States": {
+                      "SiEpss": {
+                        "Type": "Choice",
+                        "Choices": [
+                          {
+                            "And": [
+                              {
+                                "Variable": "$.epss",
+                                "IsPresent": true
+                              },
+                              {
+                                "Variable": "$.epss",
+                                "BooleanEquals": false
+                              }
+                            ],
+                            "Next": "EpssOmitida"
+                          }
+                        ],
+                        "Default": "Epss"
+                      },
+                      "Epss": {
+                        "Type": "Task",
+                        "Resource": "arn:aws:states:::lambda:invoke",
+                        "Parameters": {
+                          "FunctionName": "${ArnEpss}",
+                          "Payload": {}
+                        },
+                        "TimeoutSeconds": 360,
+                        "Retry": [
+                          {
+                            "ErrorEquals": [
+                              "States.ALL"
+                            ],
+                            "IntervalSeconds": 30,
+                            "MaxAttempts": 1
+                          }
+                        ],
+                        "Catch": [
+                          {
+                            "ErrorEquals": [
+                              "States.ALL"
+                            ],
+                            "Next": "EpssOmitida"
+                          }
+                        ],
+                        "End": true
+                      },
+                      "EpssOmitida": {
+                        "Type": "Pass",
+                        "End": true
+                      }
+                    }
+                  },
+                  {
+                    "StartAt": "SiOsvGhsa",
+                    "States": {
+                      "SiOsvGhsa": {
+                        "Type": "Choice",
+                        "Choices": [
+                          {
+                            "And": [
+                              {
+                                "Variable": "$.osv",
+                                "IsPresent": true
+                              },
+                              {
+                                "Variable": "$.osv",
+                                "BooleanEquals": false
+                              }
+                            ],
+                            "Next": "OsvGhsaOmitida"
+                          }
+                        ],
+                        "Default": "OsvGhsa"
+                      },
+                      "OsvGhsa": {
+                        "Type": "Task",
+                        "Resource": "arn:aws:states:::lambda:invoke",
+                        "Parameters": {
+                          "FunctionName": "${ArnOsv}",
+                          "Payload": {}
+                        },
+                        "TimeoutSeconds": 360,
+                        "Retry": [
+                          {
+                            "ErrorEquals": [
+                              "States.ALL"
+                            ],
+                            "IntervalSeconds": 30,
+                            "MaxAttempts": 1
+                          }
+                        ],
+                        "Catch": [
+                          {
+                            "ErrorEquals": [
+                              "States.ALL"
+                            ],
+                            "Next": "OsvGhsaOmitida"
+                          }
+                        ],
+                        "End": true
+                      },
+                      "OsvGhsaOmitida": {
+                        "Type": "Pass",
+                        "End": true
+                      }
+                    }
+                  }
                 ]
               },
-              "Normalizacion": {"Type": "Task", "Resource": "arn:aws:states:::lambda:invoke",
-                "Parameters": {"FunctionName": "${ArnNorm}", "Payload": {}}, "TimeoutSeconds": 330,
-                "Retry": [{"ErrorEquals": ["States.ALL"], "IntervalSeconds": 30, "MaxAttempts": 1}],
-                "ResultPath": null, "Next": "Carga"},
-              "Carga": {"Type": "Task", "Resource": "arn:aws:states:::lambda:invoke",
-                "Parameters": {"FunctionName": "${ArnCarga}", "Payload": {}}, "TimeoutSeconds": 900,
-                "Retry": [{"ErrorEquals": ["States.ALL"], "IntervalSeconds": 30, "MaxAttempts": 1}],
-                "ResultPath": null, "Next": "Cruce"},
-              "Cruce": {"Type": "Task", "Resource": "arn:aws:states:::lambda:invoke",
-                "Parameters": {"FunctionName": "${ArnCruce}", "Payload": {}}, "TimeoutSeconds": 300,
-                "Retry": [{"ErrorEquals": ["States.ALL"], "IntervalSeconds": 30, "MaxAttempts": 1}],
-                "ResultPath": null, "Next": "Metricas"},
-              "Metricas": {"Type": "Task", "Resource": "arn:aws:states:::lambda:invoke",
-                "Parameters": {"FunctionName": "${ArnApiDatos}", "Payload": {"accion": "snapshot"}}, "TimeoutSeconds": 60,
-                "Retry": [{"ErrorEquals": ["States.ALL"], "IntervalSeconds": 20, "MaxAttempts": 1}],
-                "ResultPath": null, "Catch": [{"ErrorEquals": ["States.ALL"], "ResultPath": null, "Next": "LeerAlertas"}],
-                "Next": "LeerAlertas"},
-              "LeerAlertas": {"Type": "Task", "Resource": "arn:aws:states:::lambda:invoke",
-                "Parameters": {"FunctionName": "${ArnApiSistema}", "Payload": {"accion": "alertas"}}, "TimeoutSeconds": 30,
-                "ResultSelector": {"alertas.$": "$.Payload"}, "ResultPath": "$.cfg",
-                "Catch": [{"ErrorEquals": ["States.ALL"], "Next": "SinAlertas"}], "Next": "ArmarAlerta"},
-              "ArmarAlerta": {"Type": "Task", "Resource": "arn:aws:states:::lambda:invoke",
-                "Parameters": {"FunctionName": "${ArnApiDatos}", "Payload": {"accion": "alerta", "alertas.$": "$.cfg.alertas", "resumen.$": "$.resumen"}}, "TimeoutSeconds": 60,
-                "ResultSelector": {"alerta.$": "$.Payload"}, "ResultPath": "$.res",
-                "Catch": [{"ErrorEquals": ["States.ALL"], "Next": "SinAlertas"}], "Next": "HayAlerta"},
-              "HayAlerta": {"Type": "Choice", "Choices": [{"Variable": "$.res.alerta.enviar", "BooleanEquals": true, "Next": "EnviarSlack"}], "Default": "SinAlertas"},
-              "EnviarSlack": {"Type": "Task", "Resource": "arn:aws:states:::lambda:invoke",
-                "Parameters": {"FunctionName": "${ArnSlack}", "Payload": {"title.$": "$.res.alerta.title", "body.$": "$.res.alerta.body"}}, "TimeoutSeconds": 30,
-                "ResultSelector": {"slack.$": "$.Payload"}, "ResultPath": "$.envio",
-                "Catch": [{"ErrorEquals": ["States.ALL"], "Next": "SinAlertas"}], "Next": "SlackEntregado"},
-              "SlackEntregado": {"Type": "Choice", "Choices": [{"Variable": "$.envio.slack.ok", "BooleanEquals": true, "Next": "MarcarEnviados"}], "Default": "SinAlertas"},
-              "MarcarEnviados": {"Type": "Task", "Resource": "arn:aws:states:::lambda:invoke",
-                "Parameters": {"FunctionName": "${ArnApiDatos}", "Payload": {"accion": "marcar", "ids.$": "$.res.alerta.ids"}}, "TimeoutSeconds": 60,
-                "ResultPath": null, "Catch": [{"ErrorEquals": ["States.ALL"], "Next": "SinAlertas"}], "End": true},
-              "SinAlertas": {"Type": "Succeed"}
+              "Normalizacion": {
+                "Type": "Task",
+                "Resource": "arn:aws:states:::lambda:invoke",
+                "Parameters": {
+                  "FunctionName": "${ArnNorm}",
+                  "Payload": {}
+                },
+                "TimeoutSeconds": 330,
+                "Retry": [
+                  {
+                    "ErrorEquals": [
+                      "States.ALL"
+                    ],
+                    "IntervalSeconds": 30,
+                    "MaxAttempts": 1
+                  }
+                ],
+                "ResultPath": "$.normalizacion_result",
+                "Next": "Carga",
+                "ResultSelector": {
+                  "manifest.$": "$.Payload.manifest"
+                }
+              },
+              "Carga": {
+                "Type": "Task",
+                "Resource": "arn:aws:states:::lambda:invoke",
+                "Parameters": {
+                  "FunctionName": "${ArnCargaV2}",
+                  "Payload": {
+                    "manifest.$": "$.normalizacion_result.manifest",
+                    "sfn_ejecucion_arn.$": "$$.Execution.Id"
+                  }
+                },
+                "TimeoutSeconds": 900,
+                "Retry": [
+                  {
+                    "ErrorEquals": [
+                      "States.ALL"
+                    ],
+                    "IntervalSeconds": 30,
+                    "MaxAttempts": 1
+                  }
+                ],
+                "ResultPath": "$.carga_result",
+                "Next": "Cruce",
+                "ResultSelector": {
+                  "corrida_id.$": "$.Payload.corrida_id"
+                }
+              },
+              "Cruce": {
+                "Type": "Task",
+                "Resource": "arn:aws:states:::lambda:invoke",
+                "Parameters": {
+                  "FunctionName": "${ArnCruceV2}",
+                  "Payload": {
+                    "corrida_id.$": "$.carga_result.corrida_id"
+                  }
+                },
+                "TimeoutSeconds": 300,
+                "Retry": [
+                  {
+                    "ErrorEquals": [
+                      "States.ALL"
+                    ],
+                    "IntervalSeconds": 30,
+                    "MaxAttempts": 1
+                  }
+                ],
+                "ResultPath": "$.cruce_result",
+                "Next": "VerificarCorridaCruce",
+                "ResultSelector": {
+                  "corrida_id.$": "$.Payload.corrida_id"
+                }
+              },
+              "Metricas": {
+                "Type": "Task",
+                "Resource": "arn:aws:states:::lambda:invoke",
+                "Parameters": {
+                  "FunctionName": "${ArnApiDatos}",
+                  "Payload": {
+                    "accion": "snapshot"
+                  }
+                },
+                "TimeoutSeconds": 60,
+                "Retry": [
+                  {
+                    "ErrorEquals": [
+                      "States.ALL"
+                    ],
+                    "IntervalSeconds": 20,
+                    "MaxAttempts": 1
+                  }
+                ],
+                "ResultPath": null,
+                "Catch": [
+                  {
+                    "ErrorEquals": [
+                      "States.ALL"
+                    ],
+                    "ResultPath": null,
+                    "Next": "TipoCorrida"
+                  }
+                ],
+                "Next": "TipoCorrida"
+              },
+              "VerificarCorridaCruce": {
+                "Type": "Choice",
+                "Choices": [
+                  {
+                    "Variable": "$.cruce_result.corrida_id",
+                    "StringEqualsPath": "$.carga_result.corrida_id",
+                    "Next": "MotorContextual"
+                  }
+                ],
+                "Default": "ErrorIntegracion"
+              },
+              "MotorContextual": {
+                "Type": "Task",
+                "Resource": "arn:aws:states:::lambda:invoke",
+                "Parameters": {
+                  "FunctionName": "${ArnMotor}",
+                  "Payload": {
+                    "corrida_id.$": "$.carga_result.corrida_id"
+                  }
+                },
+                "ResultSelector": {
+                  "status.$": "$.Payload.status",
+                  "corrida_id.$": "$.Payload.corrida_id",
+                  "evaluados.$": "$.Payload.evaluados",
+                  "errores.$": "$.Payload.errores",
+                  "listo_para_agente.$": "$.Payload.listo_para_agente",
+                  "archivo_sombra.$": "$.Payload.archivo_sombra"
+                },
+                "ResultPath": "$.motor_result",
+                "Next": "VerificarMotor",
+                "Catch": [
+                  {
+                    "ErrorEquals": [
+                      "States.ALL"
+                    ],
+                    "ResultPath": "$.motor_error",
+                    "Next": "Metricas"
+                  }
+                ]
+              },
+              "VerificarMotor": {
+                "Type": "Choice",
+                "Choices": [
+                  {
+                    "And": [
+                      {
+                        "Variable": "$.motor_result.status",
+                        "StringEquals": "ok"
+                      },
+                      {
+                        "Variable": "$.motor_result.errores",
+                        "NumericEquals": 0
+                      },
+                      {
+                        "Variable": "$.motor_result.corrida_id",
+                        "StringEqualsPath": "$.carga_result.corrida_id"
+                      }
+                    ],
+                    "Next": "Metricas"
+                  }
+                ],
+                "Default": "MotorShadowNoListo"
+              },
+              "ErrorIntegracion": {
+                "Type": "Fail",
+                "Error": "CorridaOEvaluacionInconsistente",
+                "Cause": "No coincide la corrida o fallo la evaluacion determinista"
+              },
+              "MotorShadowNoListo": {
+                "Type": "Pass",
+                "Result": {
+                  "estado": "requiere_revision",
+                  "motivo": "Resultado del motor no conforme"
+                },
+                "ResultPath": "$.motor_advertencia",
+                "Next": "Metricas"
+              },
+              "RutaResumen": {
+                "Type": "Choice",
+                "Choices": [
+                  {
+                    "And": [
+                      {
+                        "Variable": "$.resumen",
+                        "IsPresent": true
+                      },
+                      {
+                        "Variable": "$.resumen",
+                        "BooleanEquals": true
+                      }
+                    ],
+                    "Next": "Metricas"
+                  }
+                ],
+                "Default": "Normalizacion"
+              },
+              "TipoCorrida": {
+                "Type": "Choice",
+                "Comment": "Solo la regla lti-resumen-diario (resumen=true) envia el resumen de prioridad baja.",
+                "Choices": [
+                  {
+                    "And": [
+                      {
+                        "Variable": "$.resumen",
+                        "IsPresent": true
+                      },
+                      {
+                        "Variable": "$.resumen",
+                        "BooleanEquals": true
+                      }
+                    ],
+                    "Next": "NotifPrepararResumen"
+                  }
+                ],
+                "Default": "NotifPrepararAlertas"
+              },
+              "NotifPrepararAlertas": {
+                "Type": "Task",
+                "Resource": "arn:aws:states:::lambda:invoke",
+                "Parameters": {
+                  "FunctionName": "${ArnNotifRds}",
+                  "Payload": {
+                    "accion": "preparar",
+                    "resumen": false
+                  }
+                },
+                "TimeoutSeconds": 60,
+                "Next": "HayMensajes",
+                "Comment": "VPC: reclama y arma mensajes desde RDS. Idempotente (claves unicas): admite reintento.",
+                "ResultSelector": {
+                  "lote.$": "$.Payload"
+                },
+                "ResultPath": "$.notif",
+                "Retry": [
+                  {
+                    "ErrorEquals": [
+                      "Lambda.ServiceException",
+                      "Lambda.AWSLambdaException",
+                      "Lambda.SdkClientException",
+                      "Lambda.TooManyRequestsException"
+                    ],
+                    "IntervalSeconds": 5,
+                    "MaxAttempts": 2,
+                    "BackoffRate": 2
+                  }
+                ]
+              },
+              "NotifPrepararResumen": {
+                "Type": "Task",
+                "Resource": "arn:aws:states:::lambda:invoke",
+                "Parameters": {
+                  "FunctionName": "${ArnNotifRds}",
+                  "Payload": {
+                    "accion": "preparar",
+                    "resumen": true
+                  }
+                },
+                "TimeoutSeconds": 60,
+                "Next": "HayMensajes",
+                "Comment": "VPC: reclama y arma mensajes desde RDS. Idempotente (claves unicas): admite reintento.",
+                "ResultSelector": {
+                  "lote.$": "$.Payload"
+                },
+                "ResultPath": "$.notif",
+                "Retry": [
+                  {
+                    "ErrorEquals": [
+                      "Lambda.ServiceException",
+                      "Lambda.AWSLambdaException",
+                      "Lambda.SdkClientException",
+                      "Lambda.TooManyRequestsException"
+                    ],
+                    "IntervalSeconds": 5,
+                    "MaxAttempts": 2,
+                    "BackoffRate": 2
+                  }
+                ]
+              },
+              "HayMensajes": {
+                "Type": "Choice",
+                "Choices": [
+                  {
+                    "Variable": "$.notif.lote.total_mensajes",
+                    "NumericGreaterThan": 0,
+                    "Next": "NotifEnviar"
+                  }
+                ],
+                "Default": "SinNotificaciones"
+              },
+              "NotifEnviar": {
+                "Type": "Task",
+                "Resource": "arn:aws:states:::lambda:invoke",
+                "Parameters": {
+                  "FunctionName": "${ArnNotifSlack}",
+                  "Payload": {
+                    "mensajes.$": "$.notif.lote.mensajes"
+                  }
+                },
+                "TimeoutSeconds": 90,
+                "Next": "NotifRegistrar",
+                "Comment": "Fuera de VPC: publica en Slack. SIN reintento automatico (evita duplicados); si falla, las filas quedan con lease y se reintentan en la siguiente corrida.",
+                "ResultSelector": {
+                  "resultados.$": "$.Payload.resultados"
+                },
+                "ResultPath": "$.envio",
+                "Catch": [
+                  {
+                    "ErrorEquals": [
+                      "States.ALL"
+                    ],
+                    "ResultPath": "$.error_envio",
+                    "Next": "EnvioNoCompletado"
+                  }
+                ]
+              },
+              "NotifRegistrar": {
+                "Type": "Task",
+                "Resource": "arn:aws:states:::lambda:invoke",
+                "Parameters": {
+                  "FunctionName": "${ArnNotifRds}",
+                  "Payload": {
+                    "accion": "registrar",
+                    "resultados.$": "$.envio.resultados"
+                  }
+                },
+                "TimeoutSeconds": 60,
+                "Next": "TodoEntregado",
+                "Comment": "VPC: registra el resultado. Idempotente: admite reintento.",
+                "ResultSelector": {
+                  "registro.$": "$.Payload"
+                },
+                "ResultPath": "$.registro",
+                "Retry": [
+                  {
+                    "ErrorEquals": [
+                      "Lambda.ServiceException",
+                      "Lambda.AWSLambdaException",
+                      "Lambda.SdkClientException",
+                      "Lambda.TooManyRequestsException"
+                    ],
+                    "IntervalSeconds": 5,
+                    "MaxAttempts": 2,
+                    "BackoffRate": 2
+                  }
+                ]
+              },
+              "TodoEntregado": {
+                "Type": "Choice",
+                "Choices": [
+                  {
+                    "Variable": "$.registro.registro.fallidas",
+                    "NumericGreaterThan": 0,
+                    "Next": "EnvioNoCompletado"
+                  }
+                ],
+                "Default": "NotificacionesEntregadas"
+              },
+              "SinNotificaciones": {
+                "Type": "Succeed",
+                "Comment": "No habia nada nuevo que notificar."
+              },
+              "NotificacionesEntregadas": {
+                "Type": "Succeed"
+              },
+              "EnvioNoCompletado": {
+                "Type": "Fail",
+                "Error": "SlackEntregaIncompleta",
+                "Cause": "Al menos una notificacion no se entrego. Se reintentara en la siguiente corrida; revisar la tabla notificaciones y los logs del emisor."
+              }
             }
           }
         - ArnNvd: !GetAtt FuncionConector.Arn
           ArnEpss: !GetAtt FuncionEPSS.Arn
           ArnOsv: !GetAtt FuncionOSV.Arn
           ArnNorm: !GetAtt FuncionNormalizacionCurada.Arn
-          ArnCarga: !GetAtt FuncionCarga.Arn
-          ArnCruce: !GetAtt FuncionCruceRDS.Arn
           ArnApiDatos: !GetAtt FuncionApiDatos.Arn
-          ArnApiSistema: !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${NombreProyecto}-api-sistema"
-          ArnSlack: !Ref ArnSlack
+          # Fuera del stack (creadas a mano; se registran en el Mapa de conexiones):
+          ArnCargaV2: !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${NombreProyecto}-carga-vulnerabilidades-v2"
+          ArnCruceV2: !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${NombreProyecto}-cruce-rds-v2"
+          ArnMotor: !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${NombreProyecto}-motor-contextual-shadow"
+          ArnNotifRds: !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${NombreProyecto}-notificador-rds"
+          ArnNotifSlack: !Ref ArnSlack
 
   RolEventosFlujo:
     Type: AWS::IAM::Role
@@ -983,11 +1478,12 @@ Resources:
               - Effect: Allow
                 Action: lambda:InvokeFunction
                 Resource: !Ref ArnSlack
+              # C1: solo el documento propio con comando fijo y valores permitidos; ya NO AWS-RunShellScript
               - Effect: Allow
                 Action: ssm:SendCommand
                 Resource:
                   - !Sub "arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:instance/${InstanciaCMDB}"
-                  - !Sub "arn:aws:ssm:${AWS::Region}::document/AWS-RunShellScript"
+                  - !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:document/${DocumentoFrecuenciaCMDB}"
 
   FuncionApiSistema:
     Type: AWS::Lambda::Function
@@ -1011,6 +1507,32 @@ Resources:
           REGLA_EPSS: !Ref ReglaFuenteEPSS
           REGLA_OSV: !Ref ReglaFuenteOSV
           REGLA_RESUMEN: !Ref ReglaResumen
+          DOC_CMDB: !Ref DocumentoFrecuenciaCMDB
+
+  # C1: el panel solo puede cambiar la frecuencia del CMDB a 1, 3, 6, 12 o 24 h; SSM rechaza cualquier otro valor.
+  DocumentoFrecuenciaCMDB:
+    Type: AWS::SSM::Document
+    Properties:
+      Name: !Sub "${NombreProyecto}-cmdb-frecuencia"
+      DocumentType: Command
+      Content:
+        schemaVersion: "2.2"
+        description: Cambia la frecuencia del temporizador cmdb-sync. Solo admite 1, 3, 6, 12 o 24 horas.
+        parameters:
+          intervalo:
+            type: String
+            description: Horas entre sincronizaciones del CMDB
+            allowedValues: ["1", "3", "6", "12", "24"]
+        mainSteps:
+          - action: aws:runShellScript
+            name: frecuencia
+            inputs:
+              runCommand:
+                - "H='{{ intervalo }}'"
+                - 'if [ "$H" = "24" ]; then CAL="*-*-* 00:30:00"; else CAL="*-*-* 00/${H}:30:00"; fi'
+                - 'sed -i "s#^OnCalendar=.*#OnCalendar=${CAL}#" /etc/systemd/system/cmdb-sync.timer'
+                - systemctl daemon-reload
+                - systemctl restart cmdb-sync.timer
 
   # --- Panel: inicio de sesion (Cognito) ---
   UsuariosPanel:
