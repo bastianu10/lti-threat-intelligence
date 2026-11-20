@@ -39,9 +39,11 @@ Parameters:
     AllowedPattern: "[A-Za-z0-9]{8,64}"
     Description: Contrasena del usuario neo4j de la CMDB. Solo letras y numeros, minimo 8.
   ImagenLinuxArm:
-    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
-    Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-arm64
-    Description: Imagen de Amazon Linux 2023 (arm64). No hace falta cambiarla.
+    Type: AWS::EC2::Image::Id
+    Description: >-
+      AMI de la CMDB. desplegar.sh pasa la de la instancia que ya corre. Antes era el parametro SSM
+      "latest" de Amazon Linux 2023, que cambia solo cuando AWS publica una imagen nueva y provocaba el
+      REEMPLAZO de la instancia (y la perdida de Neo4j) en cualquier despliegue.
   IPPermitida:
     Type: String
     Description: Tu IP publica actual, en formato CIDR (ej. 187.190.12.34/32). Solo esa IP podra conectarse a RDS.

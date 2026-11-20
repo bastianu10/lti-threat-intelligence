@@ -28,6 +28,14 @@ CUENTA=$(aws sts get-caller-identity --query Account --output text --profile "$P
 echo "Paquete: $ZIP (version $VERSION), cuenta $CUENTA, IP permitida: ${IP_PERMITIDA:-se conserva la actual}"
 aws s3 cp "$ZIP" "s3://lti-curada-$CUENTA/artefactos/$ZIP_ARCHIVO" --profile "$PERFIL" --region "$REGION"
 
+# AMI de la CMDB: la de la instancia actual (fija), para que CloudFormation nunca la reemplace por una imagen nueva.
+CMDB_ID=$(aws cloudformation describe-stack-resource --stack-name "$STACK" --logical-resource-id InstanciaCMDB \
+  --region "$REGION" --profile "$PERFIL" --query StackResourceDetail.PhysicalResourceId --output text)
+AMI_CMDB=$(aws ec2 describe-instances --instance-ids "$CMDB_ID" --region "$REGION" --profile "$PERFIL" \
+  --query 'Reservations[0].Instances[0].ImageId' --output text)
+[[ "$AMI_CMDB" =~ ^ami-[0-9a-f]+$ ]] || { echo "No se pudo leer la AMI de la CMDB ($CMDB_ID)"; exit 1; }
+echo "AMI de la CMDB (se conserva): $AMI_CMDB"
+
 CS="revision-$(date -u +%Y%m%dT%H%M%S)"
 # La plantilla supera los 51,200 bytes que CloudFormation acepta en linea: se pasa por S3 (bucket privado;
 # CloudFormation la lee con las credenciales de quien despliega). Cada revision queda guardada con su nombre.
@@ -35,12 +43,13 @@ PLANTILLA_KEY="artefactos/plantillas/$CS.yaml"
 aws s3 cp infra/plantilla-aws.yaml "s3://lti-curada-$CUENTA/$PLANTILLA_KEY" --profile "$PERFIL" --region "$REGION" --only-show-errors
 aws cloudformation create-change-set --stack-name "$STACK" --change-set-name "$CS" \
   --template-url "https://lti-curada-$CUENTA.s3.$REGION.amazonaws.com/$PLANTILLA_KEY" --capabilities CAPABILITY_IAM \
-  --parameters "$(VERSION="$VERSION" python3 - <<'PY'
+  --parameters "$(VERSION="$VERSION" AMI_CMDB="$AMI_CMDB" python3 - <<'PY'
 import json, os
 # variable de .env.local -> parametro del stack. Sin valor: se reutiliza el actual (los secretos no salen de AWS).
 pares = {"EMAIL_PRESUPUESTO": "EmailPresupuesto", "IP_PERMITIDA": "IPPermitida", "CLAVE_RDS": "ClaveRDS",
          "CLAVE_USUARIOS": "ClaveUsuarios", "CLAVE_NEO4J": "ClaveNeo4j", "EMAIL_ADMIN_PANEL": "EmailAdminPanel"}
-p = [{"ParameterKey": "VersionNucleo", "ParameterValue": os.environ["VERSION"]}]
+p = [{"ParameterKey": "VersionNucleo", "ParameterValue": os.environ["VERSION"]},
+     {"ParameterKey": "ImagenLinuxArm", "ParameterValue": os.environ["AMI_CMDB"]}]
 for var, clave in pares.items():
     v = os.environ.get(var, "")
     p.append({"ParameterKey": clave, "ParameterValue": v} if v else {"ParameterKey": clave, "UsePreviousValue": True})
@@ -80,6 +89,11 @@ PY
 )
 if [ -n "$PELIGRO" ]; then
   echo; echo "ABORTADO: el change set reemplazaria o borraria recursos con datos: $PELIGRO"
+  echo "Detalle (que propiedad lo provoca):"
+  for r in $PELIGRO; do
+    aws cloudformation describe-change-set --stack-name "$STACK" --change-set-name "$CS" --region "$REGION" \
+      --profile "$PERFIL" --output table --query "Changes[?ResourceChange.LogicalResourceId=='$r'].ResourceChange.Details[].{recurso:'$r',propiedad:Target.Name,recrea:Target.RequiresRecreation,evaluacion:Evaluation,origen:ChangeSource,causa:CausingEntity}"
+  done
   aws cloudformation delete-change-set --stack-name "$STACK" --change-set-name "$CS" --region "$REGION" --profile "$PERFIL"
   exit 1
 fi
