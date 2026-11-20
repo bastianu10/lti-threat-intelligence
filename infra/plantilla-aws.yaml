@@ -193,7 +193,9 @@ Resources:
       MultiAZ: false
       # Cambios aplicados SIN reemplazo ni reinicio (verificar en el change set que Replacement = False):
       EnableIAMDatabaseAuthentication: true   # ya activo desde el 19-nov (R3): formaliza la deriva
-      BackupRetentionPeriod: 7                # de 1 a 7 dias: sin interrupcion (solo 0 <-> N la provoca)
+      # Se mantiene en 1: el change set marco el cambio a 7 como "RequiresRecreation: Conditionally".
+      # Pasar a 7 dias queda para despues de la demo (en una ventana con instantanea manual previa).
+      BackupRetentionPeriod: 1
       DeletionProtection: true
       # NO agregar StorageEncrypted aqui: cambiarlo REEMPLAZA la instancia (base nueva y vacia).
       # El cifrado en reposo se hace despues de la demo con instantanea cifrada + restauracion.
