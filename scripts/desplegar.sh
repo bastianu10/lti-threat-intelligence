@@ -29,8 +29,12 @@ echo "Paquete: $ZIP (version $VERSION), cuenta $CUENTA, IP permitida: ${IP_PERMI
 aws s3 cp "$ZIP" "s3://lti-curada-$CUENTA/artefactos/$ZIP_ARCHIVO" --profile "$PERFIL" --region "$REGION"
 
 CS="revision-$(date -u +%Y%m%dT%H%M%S)"
+# La plantilla supera los 51,200 bytes que CloudFormation acepta en linea: se pasa por S3 (bucket privado;
+# CloudFormation la lee con las credenciales de quien despliega). Cada revision queda guardada con su nombre.
+PLANTILLA_KEY="artefactos/plantillas/$CS.yaml"
+aws s3 cp infra/plantilla-aws.yaml "s3://lti-curada-$CUENTA/$PLANTILLA_KEY" --profile "$PERFIL" --region "$REGION" --only-show-errors
 aws cloudformation create-change-set --stack-name "$STACK" --change-set-name "$CS" \
-  --template-body file://infra/plantilla-aws.yaml --capabilities CAPABILITY_IAM \
+  --template-url "https://lti-curada-$CUENTA.s3.$REGION.amazonaws.com/$PLANTILLA_KEY" --capabilities CAPABILITY_IAM \
   --parameters "$(VERSION="$VERSION" python3 - <<'PY'
 import json, os
 # variable de .env.local -> parametro del stack. Sin valor: se reutiliza el actual (los secretos no salen de AWS).
