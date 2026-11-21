@@ -7,7 +7,7 @@ import unittest
 
 RAIZ = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(RAIZ / "lambda"))
-from agente_priorizacion.coherencia import condiciones_escalar, normalizar_escalar  # noqa: E402
+from agente_priorizacion.coherencia import condiciones_escalar, marcar_dominio, marcar_texto, normalizar_escalar  # noqa: E402
 
 
 def entrada(pf=3, kev=None, vector="CVSS:3.1/AV:L/AC:H/PR:L/UI:N/S:U/C:L/I:H/A:N", exp="interna",
@@ -68,6 +68,59 @@ class TestCoherencia(unittest.TestCase):
         self.assertEqual(original["recomendacion"]["efectiva"], "escalar")   # sin mutar la entrada
         rechazada = res("escalar", estado="rechazada")
         self.assertIs(normalizar_escalar(entrada(), rechazada), rechazada)
+
+
+class TestDominio(unittest.TestCase):
+    MODELO = json.loads((RAIZ / "contexto" / "modelo_negocio_lyft.json").read_text())
+
+    def _entrada(self, dominio):
+        e = entrada()
+        e["activo"] = {"dominio_negocio": dominio}
+        return e
+
+    def test_los_cuatro_dominios_reales_estan_definidos(self):
+        self.assertEqual({d["codigo"] for d in self.MODELO["dominios"]}, {"ecobici", "propuesta-lti", "crm", "erp"})
+
+    def test_dominio_desconocido_queda_en_la_revision(self):
+        r = marcar_dominio(self._entrada("logistica-flota"), res("mantener"), self.MODELO)
+        self.assertIn("dominio_sin_modelo_negocio", r["revision"]["motivos"])
+        self.assertFalse(r["coherencia"]["dominio_en_modelo"])
+        self.assertEqual(r["recomendacion"]["efectiva"], "mantener")     # no toca la recomendacion
+
+    def test_dominio_conocido_no_agrega_motivo(self):
+        for d in ("ecobici", "crm", "erp", "propuesta-lti"):
+            r = marcar_dominio(self._entrada(d), res("escalar"), self.MODELO)
+            self.assertNotIn("dominio_sin_modelo_negocio", r["revision"]["motivos"], d)
+            self.assertTrue(r["coherencia"]["dominio_en_modelo"])
+
+    def test_dominio_nulo_es_desconocido(self):
+        r = marcar_dominio(self._entrada(None), res("mantener"), self.MODELO)
+        self.assertIn("dominio_sin_modelo_negocio", r["revision"]["motivos"])
+
+
+class TestTexto(unittest.TestCase):
+    def _caso(self, texto, pf=1):
+        r = res("mantener")
+        r["salida_validada"]["explicacion_dashboard"] = texto
+        return marcar_texto(entrada(pf=pf), r)
+
+    def test_explicar_la_prioridad_del_motor_es_valido(self):
+        r = self._caso("La prioridad maxima (P1) fue asignada por el motor; el paso inmediato es confirmar la version.")
+        self.assertEqual(r["coherencia"]["texto"], [])
+        self.assertEqual(r["revision"]["motivos"], [])
+
+    def test_contradecir_al_motor_se_marca(self):
+        r = self._caso("Deberia tratarse como P2 aunque el motor diga otra cosa.", pf=1)
+        self.assertIn("texto_contradice_prioridad_motor", r["revision"]["motivos"])
+        self.assertTrue(r["salida_validada"]["explicacion_dashboard"].startswith("Deberia"))   # no reescribe
+
+    def test_nivel_de_riesgo_propio_se_marca(self):
+        self.assertIn("texto_asigna_nivel_riesgo", self._caso("Es un riesgo alto para la flota.")["revision"]["motivos"])
+        self.assertIn("texto_asigna_nivel_riesgo", self._caso("un riesgo inaceptable")["revision"]["motivos"])
+
+    def test_sin_falsos_positivos(self):
+        r = self._caso("Tiene una puntuacion P10 de un benchmark y un riesgo de interrupcion del servicio.", pf=3)
+        self.assertEqual(r["coherencia"]["texto"], [])
 
 
 if __name__ == "__main__":

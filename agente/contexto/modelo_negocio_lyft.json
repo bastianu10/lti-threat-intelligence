@@ -1,13 +1,13 @@
 {
   "schema_version": "modelo-negocio-v1",
   "tenant_id": "11111111-1111-1111-1111-111111111111",
-  "version": "lyft-2026.11-borrador-2",
+  "version": "lyft-2026.11-borrador-3",
   "aprobado": false,
   "aprobacion": {
     "rol_aprobador": "dueno_de_riesgo_ti",
     "fecha": null
   },
-  "_nota": "BORRADOR propuesto por el equipo. Mientras aprobado=false, el guard bloquea cualquier recomendacion de baja (baja_sin_modelo_negocio_aprobado). Sin nombres ni correos. borrador-2: se agrega el dominio 'ecobici', que es el valor real de activos.dominio_negocio en PostgreSQL para los 9 hallazgos (CAM-049); 'ti' y 'finanzas_y_negocios' provenian de la simulacion y se conservan solo por compatibilidad.",
+  "_nota": "BORRADOR propuesto por el equipo. Mientras aprobado=false, el guard bloquea cualquier recomendacion de baja (baja_sin_modelo_negocio_aprobado). Sin nombres ni correos. borrador-3: cubre los cuatro valores reales de activos.dominio_negocio en el tenant (consulta del equipo del motor, 80 activos vigentes: ecobici 33, propuesta-lti 25, crm 12, erp 10). Se retiran 'ti' y 'finanzas_y_negocios', que provenian de la simulacion. Los dominios con validacion='pendiente_dueno' se redactaron a partir del nombre del dominio y deben confirmarse con la lista de activos de cada dominio antes de aprobar. Un dominio que no este en esta lista se trata como desconocido (ver regla de dominio desconocido del prompt v2.7).",
   "apetito_riesgo": "bajo",
   "tolerancia": "Ningun hallazgo en KEV o con riesgo alto/inaceptable puede quedar sin tratamiento ni aceptacion formal mas de 15 dias.",
   "dominios": [
@@ -22,27 +22,41 @@
         "Tarifas, cobros y membresias",
         "Notificaciones a usuarios sobre cobros y viajes"
       ],
-      "escenario_impacto": "Una falla en autenticacion, borde o control de candados permite suplantar usuarios, usar vehiculos sin pago o interrumpir el servicio en toda la flota; una falla en cobros o notificaciones afecta ingresos, genera cobros indebidos o fraude y, con datos de pago, obligaciones regulatorias."
+      "escenario_impacto": "Una falla en autenticacion, borde o control de candados permite suplantar usuarios, usar vehiculos sin pago o interrumpir el servicio en toda la flota; una falla en cobros o notificaciones afecta ingresos, genera cobros indebidos o fraude y, con datos de pago, obligaciones regulatorias.",
+      "validacion": "basado_en_activos_cam049"
     },
     {
-      "codigo": "ti",
-      "nombre": "TI y plataforma",
+      "codigo": "crm",
+      "nombre": "Relacion con clientes (CRM)",
+      "validacion": "pendiente_dueno",
       "procesos_criticos": [
-        "Autenticacion de usuarios y emision de tokens para viajes y pagos",
-        "Borde de red y enrutamiento del trafico de la aplicacion movil",
-        "Control remoto de candados de vehiculos (desbloqueo y bloqueo)",
-        "Gestion de viajes en tiempo real"
+        "Gestion de cuentas y datos de contacto de usuarios",
+        "Atencion y soporte a usuarios",
+        "Comunicaciones y campanas dirigidas a usuarios"
       ],
-      "escenario_impacto": "Una falla en autenticacion, borde o control de candados permite suplantar usuarios, usar vehiculos sin pago o interrumpir el servicio en toda la flota."
+      "escenario_impacto": "Una falla expone datos personales de usuarios, con obligaciones de proteccion de datos y notificacion, dano reputacional y riesgo de fraude o suplantacion dirigida a usuarios."
     },
     {
-      "codigo": "finanzas_y_negocios",
-      "nombre": "Finanzas y negocios",
+      "codigo": "erp",
+      "nombre": "Gestion empresarial (ERP)",
+      "validacion": "pendiente_dueno",
       "procesos_criticos": [
-        "Tarifas, cobros y membresias",
-        "Notificaciones a usuarios sobre cobros y viajes"
+        "Contabilidad, facturacion y conciliacion de ingresos",
+        "Compras y pagos a proveedores",
+        "Nomina y datos de empleados"
       ],
-      "escenario_impacto": "Afecta ingresos, genera cobros indebidos o fraude y obliga a reembolsos; con datos de pago implica obligaciones regulatorias."
+      "escenario_impacto": "Una falla permite fraude financiero o pagos indebidos, altera registros contables, expone datos de empleados o impide el cierre contable."
+    },
+    {
+      "codigo": "propuesta-lti",
+      "nombre": "Plataforma de inteligencia de amenazas propuesta (LTI)",
+      "validacion": "pendiente_dueno",
+      "procesos_criticos": [
+        "Ingesta y correlacion de inteligencia de amenazas y vulnerabilidades",
+        "Priorizacion y seguimiento de vulnerabilidades en el panel",
+        "Notificaciones de seguridad al equipo responsable"
+      ],
+      "escenario_impacto": "Una falla deja al equipo de seguridad sin visibilidad o con prioridades manipuladas, y puede exponer el inventario de activos y sus vulnerabilidades, informacion util para un atacante."
     }
   ]
 }

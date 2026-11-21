@@ -13,8 +13,9 @@ nunca convierte nada en "escalar" ni en "revisar_a_la_baja": solo puede volver l
 from __future__ import annotations
 
 import copy
+import re
 
-VERSION = "coherencia-v1"
+VERSION = "coherencia-v3"
 
 
 def condiciones_escalar(entrada: dict, p: int, i: int) -> list[str]:
@@ -44,5 +45,53 @@ def normalizar_escalar(entrada: dict, res: dict) -> dict:
         out["recomendacion"]["efectiva"] = "mantener"
         out["coherencia"]["normalizada"] = True
         out["revision"]["motivos"] = list(out["revision"]["motivos"]) + ["escalar_sin_condicion"]
+        out["revision"]["requerida"] = True
+    return out
+
+
+def marcar_dominio(entrada: dict, res: dict, modelo_negocio: dict) -> dict:
+    """Si el dominio del activo no esta en el modelo de negocio, lo deja visible en la revision (motivo determinista).
+
+    El adaptador ya entrega la evidencia "el dominio no esta definido"; esto garantiza que el dueno lo vea aunque el
+    modelo de lenguaje no lo mencione. No cambia la prioridad ni la recomendacion.
+    """
+    if res.get("estado") != "aceptada":
+        return res
+    dominio = entrada["activo"].get("dominio_negocio")
+    definidos = {d.get("codigo") for d in modelo_negocio.get("dominios", [])}
+    out = copy.deepcopy(res)
+    out.setdefault("coherencia", {"version": VERSION})["dominio_en_modelo"] = dominio in definidos
+    if dominio not in definidos:
+        out["revision"]["motivos"] = list(out["revision"]["motivos"]) + ["dominio_sin_modelo_negocio"]
+        out["revision"]["requerida"] = True
+    return out
+
+
+# El texto del dashboard EXPLICA la prioridad del motor (es parte de la funcion del agente), pero no puede contradecirla
+# ni asignar un nivel de riesgo propio: R = P x I solo lo calcula el motor despues de la aprobacion del dueno.
+PATRON_PRIORIDAD = re.compile(r"\bP([1-4])\b")
+PATRON_NIVEL = re.compile(r"\briesgo (alto|medio|bajo|inaceptable|cr[ií]tico)\b", re.I)
+
+
+def revisar_texto(entrada: dict, texto: str) -> list[str]:
+    """Motivos de revision por el texto del dashboard (lista vacia = coherente)."""
+    final = entrada["evaluacion_determinista"]["prioridad_final"]
+    motivos = []
+    if any(int(m.group(1)) != final for m in PATRON_PRIORIDAD.finditer(texto)):
+        motivos.append("texto_contradice_prioridad_motor")
+    if PATRON_NIVEL.search(texto):
+        motivos.append("texto_asigna_nivel_riesgo")
+    return motivos
+
+
+def marcar_texto(entrada: dict, res: dict) -> dict:
+    """Deja visible en la revision un texto que contradice al motor. No reescribe el texto del modelo."""
+    if res.get("estado") != "aceptada":
+        return res
+    out = copy.deepcopy(res)
+    motivos = revisar_texto(entrada, out["salida_validada"].get("explicacion_dashboard", ""))
+    out.setdefault("coherencia", {"version": VERSION})["texto"] = motivos
+    if motivos:
+        out["revision"]["motivos"] = list(out["revision"]["motivos"]) + motivos
         out["revision"]["requerida"] = True
     return out

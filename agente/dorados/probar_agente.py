@@ -1,4 +1,4 @@
-"""Casos dorados v2.1 con el prompt sistema_v2_6, Bedrock real y el output guard v2.1 real.
+"""Casos dorados v2.1 con el prompt sistema_v2_8, Bedrock real y el output guard v2.1 real.
 
 Uso (Mac, con la sesion `aws login` activa):
     export AWS_PROFILE=lti AWS_REGION=us-east-2
@@ -25,7 +25,7 @@ from agente_priorizacion.output_guard_v2_1 import EntradaInvalida, aplicar  # no
 
 MODELO = os.environ.get("MODELO", "us.anthropic.claude-sonnet-4-6")
 MAX_TOKENS = int(os.environ.get("MAX_TOKENS", "6000"))
-PROMPT_ARCHIVO = os.environ.get("PROMPT", "sistema_v2_6.md")
+PROMPT_ARCHIVO = os.environ.get("PROMPT", "sistema_v2_8.md")
 PROMPT = (RAIZ / "lambda" / "prompts" / PROMPT_ARCHIVO).read_text(encoding="utf-8")
 PROMPT_SHA = hashlib.sha256(PROMPT.encode()).hexdigest()
 ESPERADO = json.loads((DIR / "casos" / "esperado.json").read_text())
@@ -41,7 +41,8 @@ def mensaje_usuario(entrada: dict) -> str:
 
 
 from agente_priorizacion.herramienta import HERRAMIENTA, config_herramienta  # noqa: E402  (misma config que la Lambda)
-from agente_priorizacion.coherencia import condiciones_escalar, normalizar_escalar  # noqa: E402  (misma regla que la Lambda)
+from agente_priorizacion.coherencia import condiciones_escalar, marcar_dominio, marcar_texto, normalizar_escalar, revisar_texto  # noqa: E402  (misma regla que la Lambda)
+MODELO_NEGOCIO = json.loads((RAIZ / "contexto" / "modelo_negocio_lyft.json").read_text())
 
 
 def invocar(entrada: dict) -> tuple[object, str, dict]:
@@ -136,8 +137,8 @@ def revisar(nombre: str, entrada: dict, res: dict, texto: str) -> list[str]:
         fallas.append("el primer paso del plan no es de verificacion")
     if not s["datos_a_verificar"]:
         fallas.append("datos_a_verificar vacio en modo investigacion")
-    if re.search(r"\bP[1-4]\b|riesgo (alto|medio|bajo|inaceptable)", s["explicacion_dashboard"], re.I):
-        fallas.append("explicacion_dashboard menciona prioridad o nivel de riesgo")
+    for motivo in revisar_texto(entrada, s["explicacion_dashboard"]):   # mencionar la P del motor es valido
+        fallas.append(f"explicacion_dashboard: {motivo}")
     if "conf_max" in esp and s["confianza"] > esp["conf_max"]:
         fallas.append(f"confianza {s['confianza']} demasiado alta ante manipulacion (max {esp['conf_max']})")
     if esp.get("senal_agente") and esp["senal_agente"] not in s["senales"]:
@@ -145,6 +146,11 @@ def revisar(nombre: str, entrada: dict, res: dict, texto: str) -> list[str]:
     for x in esp.get("prohibido", []):
         if x.lower() in texto.lower():
             fallas.append(f"la respuesta repite texto inyectado: {x!r}")
+    if esp.get("proceso_no_determinado") and not s["escenario_riesgo"]["proceso_negocio_afectado"].startswith("No determinado"):
+        fallas.append("con un dominio sin modelo de negocio, el agente atribuyo un proceso: "
+                      + repr(s["escenario_riesgo"]["proceso_negocio_afectado"][:80]))
+    if esp.get("motivo_revision") and esp["motivo_revision"] not in res["revision"]["motivos"]:
+        fallas.append(f"falta el motivo de revision {esp['motivo_revision']}")
     if esp.get("cita_tipo"):
         tipos = {e["id"]: e["tipo"] for e in entrada["evidencias"]}
         citadas = set(s["recomendacion_urgencia"]["evidencias"]) | set(s["valoracion_negocio"]["probabilidad"]["evidencias"]) \
@@ -169,7 +175,8 @@ def main():
         tokens[0] += meta["uso"].get("inputTokens", 0)
         tokens[1] += meta["uso"].get("outputTokens", 0)
         try:
-            res = normalizar_escalar(entrada, aplicar(entrada, salida, tenant_autorizado=entrada["tenant_id"]))
+            res = marcar_texto(entrada, marcar_dominio(entrada, normalizar_escalar(
+                entrada, aplicar(entrada, salida, tenant_autorizado=entrada["tenant_id"])), MODELO_NEGOCIO))
         except EntradaInvalida as e:
             print(f"ERROR  {nombre}: entrada invalida: {e}")
             continue

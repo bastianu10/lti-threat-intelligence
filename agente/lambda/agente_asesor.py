@@ -36,7 +36,7 @@ from typing import Any
 from agente_priorizacion.adaptador_v2_1 import DatoFaltante, InconsistenciaMotor, cargar_politica, construir_entrada
 from agente_priorizacion.output_guard_v2_1 import EntradaInvalida, aplicar
 from agente_priorizacion.herramienta import HERRAMIENTA, config_herramienta
-from agente_priorizacion.coherencia import normalizar_escalar
+from agente_priorizacion.coherencia import marcar_dominio, marcar_texto, normalizar_escalar
 
 log = logging.getLogger()
 log.setLevel(logging.INFO)
@@ -69,7 +69,7 @@ def _cfg() -> dict:
         "guardrail_id": os.environ["GUARDRAIL_ID"],
         "guardrail_version": os.environ["GUARDRAIL_VERSION"],
         "max_tokens": int(os.environ.get("MAX_TOKENS", "6000")),
-        "prompt": os.environ.get("PROMPT_ARCHIVO", "sistema_v2_6.md"),
+        "prompt": os.environ.get("PROMPT_ARCHIVO", "sistema_v2_8.md"),
     }
 
 
@@ -211,7 +211,8 @@ def _asesorar(cfg: dict, evento: dict) -> dict:
     if ev is None:
         raise ValueError("hallazgo no presente en el archivo del motor")
     try:
-        entrada = construir_entrada(motor, ev, _modelo_negocio(cfg), tenant_id=cfg["tenant"], politica=POLITICA,
+        modelo = _modelo_negocio(cfg)
+        entrada = construir_entrada(motor, ev, modelo, tenant_id=cfg["tenant"], politica=POLITICA,
                                     modo_demo=bool(evento.get("modo_demo")))
     except InconsistenciaMotor as e:
         log.warning("inconsistencia del motor hallazgo=%s detalle=%s", hid, e)
@@ -246,7 +247,7 @@ def _asesorar(cfg: dict, evento: dict) -> dict:
         return _sin_asesoria(hid, "salida_rechazada_por_guard", errores=res.get("errores", [])[:5])
 
     # Regla 7 evaluada con los datos: el modelo puede citar mal sus condiciones. Solo vuelve mas conservadora la recomendacion.
-    res = normalizar_escalar(entrada, res)
+    res = marcar_texto(entrada, marcar_dominio(entrada, normalizar_escalar(entrada, res), modelo))
 
     documento = {**res, "modelo": cfg["modelo"],
                  "prompt_sha256": hashlib.sha256(prompt.encode("utf-8")).hexdigest(),

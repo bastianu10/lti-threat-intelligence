@@ -12,7 +12,7 @@ CUENTA="$(aws sts get-caller-identity --query Account --output text --profile "$
 BUCKET="lti-curada-$CUENTA"
 ZIP="$DIR/lti-agente-$VERSION.zip"
 
-echo "== 1. Pruebas locales (deben pasar antes de subir nada; incluye que el contrato sea identico a contrato/v2.1)"
+echo "== 1. Pruebas locales (deben pasar antes de subir nada)"
 ( cd "$DIR" && python3 -m unittest discover -s tests >/dev/null 2>&1 ) || { echo "ABORTO: fallan las pruebas locales"; exit 1; }
 ( cd "$DIR" && python3 contrato/ejecutar_aceptacion.py >/dev/null ) || { echo "ABORTO: fallan los casos de aceptacion compartidos"; exit 1; }
 echo "   OK (pruebas unitarias y casos de aceptacion)"
@@ -28,7 +28,17 @@ if aws s3api head-object --bucket "$BUCKET" --key "artefactos/lti-agente-$VERSIO
   echo "ABORTO: artefactos/lti-agente-$VERSION.zip ya existe. Usa una version nueva (los artefactos no se sobrescriben)."; exit 1
 fi
 
-echo "== 3. Subir artefacto y modelo de negocio"
+echo "== 3. Respaldar el modelo de negocio vigente (se sobrescribe a continuacion; sirve para la reversion)"
+SELLO="$(date -u +%Y%m%dT%H%M%SZ)"
+if aws s3api head-object --bucket "$BUCKET" --key "contexto/$TENANT.json" --profile "$PERFIL" --region "$REGION" >/dev/null 2>&1; then
+  aws s3 cp "s3://$BUCKET/contexto/$TENANT.json" "s3://$BUCKET/contexto/respaldos/$TENANT-$SELLO.json" --sse AES256 \
+    --only-show-errors --profile "$PERFIL" --region "$REGION"
+  echo "   OK  respaldo s3://$BUCKET/contexto/respaldos/$TENANT-$SELLO.json"
+else
+  echo "   (no habia modelo de negocio previo)"
+fi
+
+echo "== 4. Subir artefacto y modelo de negocio"
 aws s3 cp "$ZIP" "s3://$BUCKET/artefactos/lti-agente-$VERSION.zip" --sse AES256 --only-show-errors --profile "$PERFIL" --region "$REGION"
 aws s3 cp "$DIR/contexto/modelo_negocio_lyft.json" "s3://$BUCKET/contexto/$TENANT.json" --sse AES256 \
   --content-type application/json --only-show-errors --profile "$PERFIL" --region "$REGION"

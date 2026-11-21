@@ -1369,7 +1369,7 @@ Resources:
           GUARDRAIL_ID: !GetAtt GuardrailAgente.GuardrailId
           GUARDRAIL_VERSION: !GetAtt GuardrailAgenteVersion.Version
           MAX_TOKENS: "6000"
-          PROMPT_ARCHIVO: sistema_v2_6.md
+          PROMPT_ARCHIVO: sistema_v2_8.md
 
   PresupuestoBajo:
     Type: AWS::Budgets::Budget
