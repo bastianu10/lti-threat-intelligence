@@ -4,7 +4,7 @@
 #   contexto/<TENANT>.json                 (modelo de negocio del tenant, borrador sin aprobar)
 # No despliega nada: eso lo hace desplegar.sh con la plantilla. Uso:  ./armar_paquete_agente.sh a1
 set -euo pipefail
-VERSION="${1:?indica la version, p. ej. a1}"
+VERSION="${1:?indica la version, p. ej. a2}"
 PERFIL="${AWS_PROFILE:-lti}"; REGION="${AWS_REGION:-us-east-2}"
 TENANT="11111111-1111-1111-1111-111111111111"
 DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -12,9 +12,10 @@ CUENTA="$(aws sts get-caller-identity --query Account --output text --profile "$
 BUCKET="lti-curada-$CUENTA"
 ZIP="$DIR/lti-agente-$VERSION.zip"
 
-echo "== 1. Pruebas locales (deben pasar antes de subir nada)"
+echo "== 1. Pruebas locales (deben pasar antes de subir nada; incluye que el contrato sea identico a contrato/v2.1)"
 ( cd "$DIR" && python3 -m unittest discover -s tests >/dev/null 2>&1 ) || { echo "ABORTO: fallan las pruebas locales"; exit 1; }
-echo "   OK"
+( cd "$DIR" && python3 contrato/ejecutar_aceptacion.py >/dev/null ) || { echo "ABORTO: fallan los casos de aceptacion compartidos"; exit 1; }
+echo "   OK (pruebas unitarias y casos de aceptacion)"
 
 echo "== 2. Empaquetar (solo codigo, contrato y prompt; sin pruebas ni datos)"
 rm -f "$ZIP"

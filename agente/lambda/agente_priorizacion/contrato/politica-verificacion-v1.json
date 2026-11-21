@@ -1,0 +1,50 @@
+{
+  "schema_version": "politica-verificacion-v1",
+  "version": "1.0.0-borrador",
+  "estado": "borrador para acordar entre el equipo del motor y el equipo Bedrock",
+  "principio": "verificado exige evidencia positiva identificable: fuente, fecha de verificacion y un metodo admitido, dentro de la ventana del metodo. La ausencia de advertencias no prueba nada. Ante evidencia incompleta el estado se degrada; nunca se sube.",
+  "referencia_temporal": "assessed_at del motor (instante de la evaluacion). La antiguedad se mide en dias completos desde fecha_verificacion hasta assessed_at.",
+  "reglas_generales": {
+    "verificado_requiere": ["fuente", "fecha_verificacion", "metodo admitido para el campo"],
+    "fecha_futura": "Una fecha_verificacion posterior a assessed_at es invalida: el dato queda como si no tuviera evidencia.",
+    "degradacion_con_valor": "declarado_sin_evidencia",
+    "degradacion_sin_valor": "desconocido",
+    "no_consultable": "Solo cuando el dato no pudo leerse por permisos o configuracion (fuentes_no_lectura). Nunca equivale a cero ni a 'no'.",
+    "quien_asigna": "El motor asigna el estado con su evidencia. El adaptador valida contra esta politica y solo puede degradar."
+  },
+  "campos": {
+    "exposicion": {
+      "metodos": {
+        "observacion_cmdb": {"ventana_dias": 30, "evidencia": "Observacion tecnica del recurso en la CMDB (p. ej. balanceador orientado a internet, regla de grupo de seguridad abierta, IP publica)."},
+        "atestacion_dueno": {"ventana_dias": 90, "evidencia": "Registro de un usuario autenticado que declara explicitamente el valor de exposicion. Un resultado de recertificacion 'sin_cambios' o 'con_cambios' NO basta."}
+      }
+    },
+    "inventario": {
+      "metodos": {
+        "conciliacion_cmdb": {"ventana_dias": 30, "evidencia": "Coincidencia de componente y version entre el inventario y la CMDB.", "valor_permitido": "vigente_conciliado"},
+        "recertificacion": {"ventana_dias": 90, "evidencia": "Recertificacion vigente sin conciliacion tecnica.", "valor_permitido": "vigente_sin_conciliar", "estado_maximo": "declarado_sin_evidencia"}
+      },
+      "nota": "vigente_conciliado solo es admisible con conciliacion_cmdb vigente."
+    },
+    "dependencias": {
+      "metodos": {
+        "consulta_bd": {"ventana_dias": 1, "evidencia": "Lectura de despliegue_dependencias en la misma corrida. Una lista vacia leida es 'cero dependientes verificado'."}
+      }
+    },
+    "cvss": {
+      "metodos": {
+        "consulta_nvd": {"ventana_dias": 2, "evidencia": "Metricas obtenidas de NVD con fecha de consulta."}
+      }
+    },
+    "kev": {
+      "metodos": {
+        "catalogo_cisa": {"ventana_dias": 2, "evidencia": "Version o fecha del catalogo CISA KEV consultado. Sin esta evidencia, en_kev=false no significa 'fuera de KEV'."}
+      }
+    },
+    "epss": {
+      "metodos": {
+        "api_first": {"ventana_dias": 2, "evidencia": "Puntaje y percentil de FIRST con su fecha. Faltar cualquiera de los dos deja el dato en desconocido."}
+      }
+    }
+  }
+}

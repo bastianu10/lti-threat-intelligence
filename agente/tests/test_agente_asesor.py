@@ -8,12 +8,14 @@ import pathlib
 import sys
 import unittest
 
+
 RAIZ = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(RAIZ / "lambda"))
 import agente_asesor as A  # noqa: E402
+from agente_priorizacion.herramienta import config_herramienta  # noqa: E402
 
-MOTOR = json.loads((RAIZ / "tests" / "motor-v1.3.3.json").read_text())
-MODELO = json.loads((RAIZ / "tests" / "modelo_negocio_lyft.json").read_text())
+MOTOR = json.loads((RAIZ / "insumos" / "motor-v1.3.3.json").read_text())
+MODELO = json.loads((RAIZ / "contexto" / "modelo_negocio_lyft.json").read_text())
 TENANT, CORRIDA = MOTOR["tenant_id"], MOTOR["corrida_id"]
 BUCKET_MOTOR, BUCKET_CURADA = "lti-motor-shadow-123456789012", "lti-curada-123456789012"
 AUTH = "25cab4bf-0cb7-4085-a22c-34dd8649b22b"
@@ -56,6 +58,8 @@ class BedrockFalso:
         assert "$ref" not in json.dumps(toolConfig)
         texto = messages[0]["content"][0]["text"]
         entrada = json.loads(texto.split("<entrada_hallazgo>\n")[1].split("\n</entrada_hallazgo>")[0])
+        self.direcciones = getattr(self, "direcciones", []) + [(entrada["evaluacion_determinista"]["prioridad_final"],
+            toolConfig["tools"][0]["toolSpec"]["inputSchema"]["json"]["properties"]["recomendacion_urgencia"]["properties"]["direccion"]["enum"])]
         salida = self.salida(entrada) if callable(self.salida) else self.salida
         contenido = [{"toolUse": {"toolUseId": "t1", "name": "registrar_evaluacion", "input": salida}}] \
             if isinstance(salida, dict) else [{"text": str(salida)}]
@@ -112,7 +116,8 @@ class TestAgenteAsesor(unittest.TestCase):
         self.assertEqual(r["estado"], "asesorado")
         self.assertTrue(r["destino"].startswith(f"agente/{TENANT}/{CORRIDA}/{AUTH}-"))
         doc = json.loads(self.s3.objetos[(BUCKET_CURADA, r["destino"])])
-        self.assertEqual(doc["prioridad"]["fuente"], "determinista")
+        self.assertEqual(doc["prioridad"]["fuente"], "motor")
+        self.assertEqual(doc["entrada"]["schema_version"], "agente-entrada-v2.1")
         self.assertEqual(self.br.guardrail_llamadas, ["INPUT", "OUTPUT"])
 
     def test_reintento_idempotente(self):
@@ -193,9 +198,56 @@ class TestAgenteAsesor(unittest.TestCase):
         self.assertEqual(r["motivo"], "dato_faltante")
         self.assertEqual(self.br.converse_llamadas, 0)
 
+    def test_inconsistencia_del_motor_no_se_asesora(self):
+        malo = copy.deepcopy(MOTOR)
+        for e in malo["evaluaciones"]:
+            if e["resultado"]["case_id"] == AUTH:
+                e["resultado"]["prioridad_final"] = 3          # perfora el piso KEV P1
+        self.s3, self.archivo = preparar(malo)
+        A._clientes["s3"] = self.s3
+        r = A.handler(self.ev())
+        self.assertEqual((r["motivo"], r["revision"]), ("inconsistencia_motor", "alta"))
+        self.assertEqual(self.br.converse_llamadas, 0)
+
+    def test_salida_v1321_sin_prioridad_final_no_se_asesora(self):
+        viejo = copy.deepcopy(MOTOR)
+        for e in viejo["evaluaciones"]:
+            e["resultado"].pop("prioridad_final")
+        self.s3, self.archivo = preparar(viejo)
+        A._clientes["s3"] = self.s3
+        self.assertEqual(A.handler(self.ev())["motivo"], "dato_faltante")
+
     def test_esquema_de_herramienta_autocontenido(self):
-        self.assertNotIn("$ref", json.dumps(A.TOOL_CONFIG))
-        self.assertNotIn("$defs", json.dumps(A.TOOL_CONFIG))
+        cfg = config_herramienta({"evaluacion_determinista": {"prioridad_final": 3, "estado_aplicabilidad": "confirmed"}})
+        self.assertNotIn("$ref", json.dumps(cfg))
+        self.assertNotIn("$defs", json.dumps(cfg))
+
+    def test_direcciones_acotadas_por_caso(self):
+        def enum(pf, ap):
+            cfg = config_herramienta({"evaluacion_determinista": {"prioridad_final": pf, "estado_aplicabilidad": ap}})
+            return cfg["tools"][0]["toolSpec"]["inputSchema"]["json"]["properties"]["recomendacion_urgencia"]["properties"]["direccion"]["enum"]
+        self.assertEqual(enum(1, "confirmed"), ["mantener"])
+        self.assertEqual(enum(1, "candidate"), ["mantener"])
+        self.assertEqual(enum(3, "candidate"), ["escalar", "mantener"])
+        self.assertEqual(enum(3, "confirmed"), ["escalar", "mantener", "revisar_a_la_baja"])
+        self.assertEqual(enum(2, "confirmed"), ["escalar", "mantener", "revisar_a_la_baja"])  # sin mutar la base
+
+    def test_la_lambda_aplica_la_capa_de_coherencia(self):
+        llamadas = []
+        original = A.normalizar_escalar
+        A.normalizar_escalar = lambda e, r: llamadas.append(r["estado"]) or original(e, r)
+        try:
+            A.handler(self.ev())
+        finally:
+            A.normalizar_escalar = original
+        self.assertTrue(llamadas)
+        self.assertTrue(all(x == "aceptada" for x in llamadas))
+
+    def test_la_lambda_envia_el_enum_acotado(self):
+        A.handler(self.ev())
+        self.assertTrue(self.br.direcciones)
+        for pf, enum in self.br.direcciones:
+            self.assertEqual(enum == ["mantener"], pf == 1)
 
 
 if __name__ == "__main__":

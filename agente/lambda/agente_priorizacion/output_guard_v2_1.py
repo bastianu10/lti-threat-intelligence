@@ -1,4 +1,4 @@
-"""Output guard v2: priorizacion ASISTIDA.
+"""Output guard v2.1: priorizacion ASISTIDA (contrato de entrada v2.1 acordado con el equipo del motor).
 
 Principio: la IA ASESORA, el motor CALCULA y el dueno del activo APRUEBA.
 
@@ -26,12 +26,12 @@ from urllib.parse import urlsplit
 
 from .esquema import Validador
 
-VERSION_GUARD = "output-guard-v2.0"
-ESQUEMA_ENTRADA = "agente-entrada-v2"
+VERSION_GUARD = "output-guard-v2.1"
+ESQUEMA_ENTRADA = "agente-entrada-v2.1"
 ESQUEMA_SALIDA = "agente-salida-v2"
 
 _DIR = pathlib.Path(__file__).resolve().parent / "contrato"
-_V_ENTRADA = Validador(json.loads((_DIR / "entrada.v2.schema.json").read_text(encoding="utf-8")))
+_V_ENTRADA = Validador(json.loads((_DIR / "entrada.v2_1.schema.json").read_text(encoding="utf-8")))
 _V_SALIDA = Validador(json.loads((_DIR / "salida.v2.schema.json").read_text(encoding="utf-8")))
 
 DOMINIOS_PERMITIDOS = frozenset({
@@ -88,21 +88,37 @@ def validar_entrada(e: Any, *, dominios_extra: frozenset = frozenset()) -> list[
     if err:
         return err
     det = e["evaluacion_determinista"]
-    base, piso, final = det["prioridad_base"], det["prioridad_piso"], det["prioridad_final"]
+    piso, final = det["prioridad_piso_efectivo"], det["prioridad_final"]
+    cp = e["comparacion_previa"]
+    # El motor es la autoridad: el guard solo comprueba que su resultado sea coherente.
     if piso is not None and final > piso:
-        err.append("evaluacion_determinista: prioridad_final perfora el piso")
-    if det["origen"] == "cruce" and final != min(base, piso if piso is not None else base):
-        err.append("evaluacion_determinista: en origen=cruce la final debe ser min(base, piso)")
+        err.append("evaluacion_determinista: prioridad_final perfora el piso efectivo")
+    if cp.get("prioridad_piso") is not None and final > cp["prioridad_piso"]:
+        err.append("evaluacion_determinista: prioridad_final perfora el piso del cruce")
     if (det["estado_aplicabilidad"] == "confirmed") != (det["prioridad_tipo"] == "tratamiento"):
         err.append("evaluacion_determinista: tratamiento exige aplicabilidad confirmed (y viceversa)")
-    if (det["estado_puntaje"] == "no_calculado") != (det["puntaje_riesgo"] is None):
-        err.append("evaluacion_determinista: puntaje_riesgo null si y solo si estado_puntaje=no_calculado")
+    if (det["prioridad_piso_efectivo"] is None) != (det["origen_piso"] is None):
+        err.append("evaluacion_determinista: piso efectivo y origen_piso van juntos")
+    if cp["disponible"]:
+        if cp.get("prioridad") is None or det["prioridad_base"] != cp["prioridad"]:
+            err.append("comparacion_previa: con antes disponible, prioridad = evaluacion_determinista.prioridad_base")
+        if (cp.get("puntaje_riesgo") is None) != (cp.get("escala_puntaje") is None):
+            err.append("comparacion_previa: el puntaje 0-100 del cruce viaja con su escala")
+    else:
+        if not cp.get("motivo") or det["prioridad_base"] is not None:
+            err.append("comparacion_previa: sin antes disponible se exige el motivo y prioridad_base null")
     kev = e["vulnerabilidad"]["kev"]
     if kev["estado_verificacion"] == "verificado" and kev["valor"] is None:
         err.append("vulnerabilidad.kev: un KEV verificado debe declarar en_kev true/false")
-    cp = e["comparacion_previa"]
-    if not cp["disponible"] and not cp.get("motivo"):
-        err.append("comparacion_previa: sin antes disponible se exige el motivo")
+    # Evidencia positiva: todo dato verificado declara fecha y metodo (politica-verificacion-v1).
+    for nombre, dato in (("despliegue.exposicion", e["despliegue"]["exposicion"]),
+                         ("despliegue.dependencias", e["despliegue"]["dependencias"]),
+                         ("inventario", e["inventario"]), ("vulnerabilidad.cvss", e["vulnerabilidad"]["cvss"]),
+                         ("vulnerabilidad.kev", kev), ("vulnerabilidad.epss", e["vulnerabilidad"]["epss"])):
+        if dato["estado_verificacion"] == "verificado":
+            proc = dato["procedencia"]
+            if not proc.get("fecha_verificacion") or not proc.get("metodo") or dato["valor"] is None:
+                err.append(f"{nombre}: 'verificado' sin evidencia positiva (fecha, metodo y valor)")
     ids = [x["id"] for x in e["evidencias"]]
     if len(ids) != len(set(ids)):
         err.append("evidencias: ids repetidos")
@@ -196,7 +212,7 @@ def _bloqueos_baja(e: dict, s: dict) -> list[str]:
     vn = s["valoracion_negocio"]
     if vn["probabilidad"]["valor"] == 3 or vn["impacto"]["valor"] == 3:
         b.append("baja_incoherente_con_valoracion")
-    if det["prioridad_piso"] is not None and det["prioridad_final"] == det["prioridad_piso"]:
+    if det["prioridad_piso_efectivo"] is not None and det["prioridad_final"] == det["prioridad_piso_efectivo"]:
         b.append("baja_bloqueada_por_piso")
     if not e["contexto_negocio"]["aprobado"]:
         b.append("baja_sin_modelo_negocio_aprobado")
@@ -216,8 +232,8 @@ def aplicar(entrada: dict, salida: Any, *, tenant_autorizado: str,
         raise EntradaInvalida("tenant_id de la entrada distinto del tenant autorizado del servicio")
 
     det = entrada["evaluacion_determinista"]
-    prioridad = {"base": det["prioridad_base"], "piso": det["prioridad_piso"], "final": det["prioridad_final"],
-                 "tipo": det["prioridad_tipo"], "fuente": "determinista"}
+    prioridad = {"base": det["prioridad_base"], "piso": det["prioridad_piso_efectivo"], "final": det["prioridad_final"],
+                 "tipo": det["prioridad_tipo"], "fuente": "motor"}
     entrada_sha = sha256_canonico(entrada)
     try:
         salida_sha = sha256_canonico(salida)

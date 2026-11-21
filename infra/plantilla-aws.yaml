@@ -46,7 +46,7 @@ Parameters:
       REEMPLAZO de la instancia (y la perdida de Neo4j) en cualquier despliegue.
   VersionAgente:
     Type: String
-    Default: a1
+    Default: a2
     AllowedPattern: "[a-z0-9.-]{1,20}"
     Description: Version del paquete lti-agente-<version>.zip en s3://<bucket curada>/artefactos/ (agente asesor).
   ModoDemoAgente:
@@ -1369,7 +1369,7 @@ Resources:
           GUARDRAIL_ID: !GetAtt GuardrailAgente.GuardrailId
           GUARDRAIL_VERSION: !GetAtt GuardrailAgenteVersion.Version
           MAX_TOKENS: "6000"
-          PROMPT_ARCHIVO: sistema_v2_4.md
+          PROMPT_ARCHIVO: sistema_v2_6.md
 
   PresupuestoBajo:
     Type: AWS::Budgets::Budget

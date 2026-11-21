@@ -1,13 +1,29 @@
 {
   "schema_version": "modelo-negocio-v1",
   "tenant_id": "11111111-1111-1111-1111-111111111111",
-  "version": "lyft-2026.11-borrador",
+  "version": "lyft-2026.11-borrador-2",
   "aprobado": false,
-  "aprobacion": {"rol_aprobador": "dueno_de_riesgo_ti", "fecha": null},
-  "_nota": "BORRADOR propuesto por el equipo. Mientras aprobado=false, el guard bloquea cualquier recomendacion de baja (baja_sin_modelo_negocio_aprobado). Sin nombres ni correos.",
+  "aprobacion": {
+    "rol_aprobador": "dueno_de_riesgo_ti",
+    "fecha": null
+  },
+  "_nota": "BORRADOR propuesto por el equipo. Mientras aprobado=false, el guard bloquea cualquier recomendacion de baja (baja_sin_modelo_negocio_aprobado). Sin nombres ni correos. borrador-2: se agrega el dominio 'ecobici', que es el valor real de activos.dominio_negocio en PostgreSQL para los 9 hallazgos (CAM-049); 'ti' y 'finanzas_y_negocios' provenian de la simulacion y se conservan solo por compatibilidad.",
   "apetito_riesgo": "bajo",
   "tolerancia": "Ningun hallazgo en KEV o con riesgo alto/inaceptable puede quedar sin tratamiento ni aceptacion formal mas de 15 dias.",
   "dominios": [
+    {
+      "codigo": "ecobici",
+      "nombre": "Operacion del servicio Ecobici (bicicletas compartidas)",
+      "procesos_criticos": [
+        "Autenticacion de usuarios y emision de tokens para viajes y pagos",
+        "Borde de red y enrutamiento del trafico de la aplicacion movil",
+        "Control remoto de candados de vehiculos (desbloqueo y bloqueo)",
+        "Gestion de viajes en tiempo real",
+        "Tarifas, cobros y membresias",
+        "Notificaciones a usuarios sobre cobros y viajes"
+      ],
+      "escenario_impacto": "Una falla en autenticacion, borde o control de candados permite suplantar usuarios, usar vehiculos sin pago o interrumpir el servicio en toda la flota; una falla en cobros o notificaciones afecta ingresos, genera cobros indebidos o fraude y, con datos de pago, obligaciones regulatorias."
+    },
     {
       "codigo": "ti",
       "nombre": "TI y plataforma",

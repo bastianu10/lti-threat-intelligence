@@ -1,4 +1,7 @@
-"""Lambda `lti-agente-asesor`: agente de priorizacion ASISTIDA (Bedrock Converse + Guardrail + output guard).
+"""Lambda `lti-agente-asesor` v2.1: agente de priorizacion ASISTIDA (Bedrock Converse + Guardrail + output guard v2.1).
+
+Contrato v2.1 acordado con el equipo del motor: el motor es la unica autoridad de la prioridad final, sus pisos y los
+estados de verificacion (politica-verificacion-v1); el adaptador valida y solo degrada.
 
 Corre FUERA de la VPC y sin credenciales de base de datos: si una inyeccion de prompt tuviera exito, solo
 podria afectar un texto que despues valida el guard. Lo invoca Step Functions despues de VerificarMotor.
@@ -12,7 +15,7 @@ Acciones (lista blanca):
 Defensa en capas por caso:
   1. Integridad: el archivo del motor debe venir del bucket EXACTO del motor, bajo
      risk-engine-shadow/, y su SHA-256 debe coincidir con el que reporto el motor.
-  2. Adaptador v2: estados de verificacion en codigo, textos de terceros saneados, DatoFaltante -> no se envia.
+  2. Adaptador v2.1: valida la prioridad del motor y degrada estados sin evidencia; DatoFaltante -> no se envia.
   3. Guardrail (ApplyGuardrail, INPUT) sobre los textos de terceros: si interviene, NO se invoca al modelo.
   4. Bedrock Converse con salida estructurada FORZADA (herramienta registrar_evaluacion).
   5. Output guard v2 (determinista): valida el contrato; la prioridad siempre es la del motor.
@@ -30,19 +33,21 @@ import re
 import time
 from typing import Any
 
-from agente_priorizacion.adaptador_v2 import DatoFaltante, construir_entrada
-from agente_priorizacion.output_guard_v2 import EntradaInvalida, aplicar
+from agente_priorizacion.adaptador_v2_1 import DatoFaltante, InconsistenciaMotor, cargar_politica, construir_entrada
+from agente_priorizacion.output_guard_v2_1 import EntradaInvalida, aplicar
+from agente_priorizacion.herramienta import HERRAMIENTA, config_herramienta
+from agente_priorizacion.coherencia import normalizar_escalar
 
 log = logging.getLogger()
 log.setLevel(logging.INFO)
 
 RAIZ = pathlib.Path(__file__).resolve().parent
-HERRAMIENTA = "registrar_evaluacion"
 MAX_CASOS = 50
 RE_UUID = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
 RE_SHA = re.compile(r"^[0-9a-f]{64}$")
 
 _clientes: dict[str, Any] = {}
+POLITICA = cargar_politica()
 
 
 def _cliente(nombre: str):
@@ -64,30 +69,12 @@ def _cfg() -> dict:
         "guardrail_id": os.environ["GUARDRAIL_ID"],
         "guardrail_version": os.environ["GUARDRAIL_VERSION"],
         "max_tokens": int(os.environ.get("MAX_TOKENS", "6000")),
-        "prompt": os.environ.get("PROMPT_ARCHIVO", "sistema_v2_4.md"),
+        "prompt": os.environ.get("PROMPT_ARCHIVO", "sistema_v2_6.md"),
     }
 
 
-def _sin_refs(nodo, raiz):
-    if isinstance(nodo, dict):
-        if "$ref" in nodo:
-            destino = raiz
-            for parte in nodo["$ref"][2:].split("/"):
-                destino = destino[parte]
-            return _sin_refs(destino, raiz)
-        return {k: _sin_refs(v, raiz) for k, v in nodo.items() if k not in ("$schema", "$id", "$defs")}
-    if isinstance(nodo, list):
-        return [_sin_refs(x, raiz) for x in nodo]
-    return nodo
-
-
-_ESQUEMA_SALIDA = json.loads((RAIZ / "agente_priorizacion" / "contrato" / "salida.v2.schema.json").read_text("utf-8"))
-TOOL_CONFIG = {
-    "tools": [{"toolSpec": {"name": HERRAMIENTA,
-                            "description": "Registra la evaluacion asesora del hallazgo (contrato agente-salida-v2).",
-                            "inputSchema": {"json": _sin_refs(_ESQUEMA_SALIDA, _ESQUEMA_SALIDA)}}}],
-    "toolChoice": {"tool": {"name": HERRAMIENTA}},
-}
+# La configuracion de la herramienta (con el enum de direccion acotado por caso) vive en agente_priorizacion.herramienta,
+# compartida con las pruebas doradas para que ambas usen exactamente la misma restriccion.
 
 
 # ------------------------------------------------------------------------------------- integridad
@@ -154,7 +141,7 @@ def _invocar_modelo(cfg: dict, prompt: str, entrada: dict) -> tuple[Any, dict]:
     r = _cliente("bedrock-runtime").converse(
         modelId=cfg["modelo"], system=[{"text": prompt}],
         messages=[{"role": "user", "content": [{"text": _mensaje(entrada)}]}],
-        toolConfig=TOOL_CONFIG, inferenceConfig={"maxTokens": cfg["max_tokens"], "temperature": 0})
+        toolConfig=config_herramienta(entrada), inferenceConfig={"maxTokens": cfg["max_tokens"], "temperature": 0})
     meta = {"stop": r.get("stopReason"), "uso": r.get("usage", {}), "latencia_ms": int((time.time() - t0) * 1000)}
     for b in r["output"]["message"]["content"]:
         if "toolUse" in b and b["toolUse"].get("name") == HERRAMIENTA:
@@ -187,7 +174,7 @@ def _listar(cfg: dict, evento: dict) -> dict:
     casos, omitidos = [], 0
     for ev in motor.get("evaluaciones", []):
         try:
-            if construir_entrada(motor, ev, modelo, tenant_id=cfg["tenant"],
+            if construir_entrada(motor, ev, modelo, tenant_id=cfg["tenant"], politica=POLITICA,
                                  modo_demo=bool(evento.get("modo_demo"))) is not None:
                 casos.append(ev["resultado"]["case_id"])
             else:
@@ -212,7 +199,7 @@ def _guardar(cfg: dict, destino: str, documento: dict) -> None:
 
 def _sin_asesoria(hallazgo_id: str, motivo: str, **extra) -> dict:
     return {"hallazgo_id": hallazgo_id, "estado": "sin_asesoria", "motivo": motivo,
-            "revision": "alta" if motivo == "guardrail_bloqueo_entrada" else "normal", **extra}
+            "revision": "alta" if motivo in ("guardrail_bloqueo_entrada", "inconsistencia_motor") else "normal", **extra}
 
 
 def _asesorar(cfg: dict, evento: dict) -> dict:
@@ -224,8 +211,11 @@ def _asesorar(cfg: dict, evento: dict) -> dict:
     if ev is None:
         raise ValueError("hallazgo no presente en el archivo del motor")
     try:
-        entrada = construir_entrada(motor, ev, _modelo_negocio(cfg), tenant_id=cfg["tenant"],
+        entrada = construir_entrada(motor, ev, _modelo_negocio(cfg), tenant_id=cfg["tenant"], politica=POLITICA,
                                     modo_demo=bool(evento.get("modo_demo")))
+    except InconsistenciaMotor as e:
+        log.warning("inconsistencia del motor hallazgo=%s detalle=%s", hid, e)
+        return _sin_asesoria(hid, "inconsistencia_motor", detalle=str(e)[:200])
     except DatoFaltante as e:
         return _sin_asesoria(hid, "dato_faltante", detalle=str(e)[:200])
     if entrada is None:
@@ -254,6 +244,9 @@ def _asesorar(cfg: dict, evento: dict) -> dict:
     if res["estado"] != "aceptada":
         log.warning("salida rechazada hallazgo=%s errores=%s", hid, res.get("errores", [])[:3])
         return _sin_asesoria(hid, "salida_rechazada_por_guard", errores=res.get("errores", [])[:5])
+
+    # Regla 7 evaluada con los datos: el modelo puede citar mal sus condiciones. Solo vuelve mas conservadora la recomendacion.
+    res = normalizar_escalar(entrada, res)
 
     documento = {**res, "modelo": cfg["modelo"],
                  "prompt_sha256": hashlib.sha256(prompt.encode("utf-8")).hexdigest(),
