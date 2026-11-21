@@ -1,64 +1,70 @@
 {
- "version": "contrato-v2.1-rc1",
- "fecha": "2026-11-20",
- "emisor": "equipo Bedrock",
- "estado": "borrador acordado; sin desplegar en AWS",
- "contratos": {
-  "entrada": "agente-entrada-v2.1",
-  "salida": "agente-salida-v2",
-  "politica_verificacion": "1.0.0-borrador",
-  "politica_verificacion_sha256_canonico": "aa9d30a1b034b5f35d71478ed8c657f526b0c47e7e94890e6d41ef6805786c04",
-  "adaptador": "adaptador_v2_1",
-  "output_guard": "output-guard-v2.1"
- },
- "hash_canonico": "sha256 de json.dumps(obj, sort_keys=True, ensure_ascii=False, separators=(',', ':')) en UTF-8",
- "requisitos": "Python 3.9 o superior; solo biblioteca estandar; sin red ni AWS",
- "comandos": {
-  "pruebas_unitarias": "python3 -m unittest discover -s tests",
-  "casos_aceptacion": "python3 contrato/ejecutar_aceptacion.py",
-  "invariante_con_salida_real": "python3 contrato/ejecutar_aceptacion.py --motor <salida_real_del_motor.json>",
-  "regenerar_casos_desde_simulacion": "python3 simular_motor_v133.py && python3 contrato/generar_casos_aceptacion.py"
- },
- "resultados_esperados": {
-  "pruebas_unitarias": "85 OK",
-  "casos_aceptacion": "15/15 (CA-01 a CA-14 + INV-01)"
- },
- "como_usar_casos": "Cada contrato/casos_aceptacion/CA-*.json trae 'motor' (salida simulada con UNA evaluacion) y 'esperado' (el contrato). El equipo del motor sustituye solo 'motor' por la salida real de su candidato para ese escenario; 'esperado' no se modifica.",
- "insumos": {
-  "insumos/motor-v1.3.2.1-real.json": "salida real de la corrida 2f9ed42d (sin PII)",
-  "insumos/motor-v1.3.3.json": "SIMULADA con la forma acordada v2.1; contexto, cruce y verificacion estimados",
-  "contexto/modelo_negocio_lyft.json": "modelo de negocio en borrador (aprobado=false)"
- },
- "archivos_sha256": {
-  "contexto/modelo_negocio_lyft.json": "06c75a68828ec81cfc3913841874143521f35dac184e7937e97abd25e8ba9de9",
-  "contrato/casos_aceptacion/CA-01.json": "91b65bbd16f983eac3d997e3ee585b203b56b02cc1061d0bd9a82084099ec75a",
-  "contrato/casos_aceptacion/CA-02.json": "90ec1e0aadfd40d46279fcbb54bb6a01549e2f800dc92f3bc9d80426855c4dd7",
-  "contrato/casos_aceptacion/CA-03.json": "3acef87523373da731366a6e6556558d8d1f82b976efba41cafd6f1c5217e9ae",
-  "contrato/casos_aceptacion/CA-04.json": "9253b0d0887893ff6256d75811bf25df27da508c95e2ccc10a5822423eb40f0e",
-  "contrato/casos_aceptacion/CA-05.json": "2fbc25dd4d57568e958430f94d7b28d8e544dfd1acfe7bae2bee3a265add7b5f",
-  "contrato/casos_aceptacion/CA-06.json": "f13a774010cc2c266de7a9d30111d1be7a8a12079e7800f99a4fbbafaa9ab2b8",
-  "contrato/casos_aceptacion/CA-07.json": "a03d12f90f39a3964eba82c8aef69f8c235d2211fa3daca49ec37b6a0459b408",
-  "contrato/casos_aceptacion/CA-08.json": "08afe130102867ad7d5118c069a232ff5b05747320209dd803dc27419bc33e56",
-  "contrato/casos_aceptacion/CA-09.json": "ae70e222c507b9e3303040eaeceec56083b4d575bf7680e1a2c68a422fcc9369",
-  "contrato/casos_aceptacion/CA-10.json": "1f0869211a7578bd8f07a74b4db25a52f774cc5c1f8d8ea07c4e7565d65829c5",
-  "contrato/casos_aceptacion/CA-11.json": "bf46e0e66cb52e0fbc3ec68c3933decc0462fdda4a183174aab6f71ad7991d34",
-  "contrato/casos_aceptacion/CA-12.json": "6bbbb1c0fd57c869f082ad37513e6770e74deb71b6e03cbd453b637355233cca",
-  "contrato/casos_aceptacion/CA-13.json": "f2b7201c96ff7ffc3d7aadd8251b4a990e92b75769403f7266a59bfb61a0bfc6",
-  "contrato/casos_aceptacion/CA-14.json": "3499934c45574b1cc5a75523de8c984836c48ce0276d661e93ce472f66b80304",
-  "contrato/ejecutar_aceptacion.py": "2c1fb4e9004c51947a2495ef33a2d7ed2b5b2d74a89f64050196a0fca87b5f3e",
-  "contrato/generar_casos_aceptacion.py": "8bc9728e9646fff7d0fdb6f46a68711ba3b52e65ad399ab97b0a2720adf06829",
-  "insumos/motor-v1.3.2.1-real.json": "a5a1734ac1ed213d93823714115cf928811fef807af953a29d5c2968e3b2c864",
-  "insumos/motor-v1.3.3.json": "b9462bf9519b1c948266a7b2e79fde1f67f476187719fe2521e9e080e033d5b5",
-  "lambda/agente_priorizacion/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-  "lambda/agente_priorizacion/adaptador_v2_1.py": "8c0d2cd4bb85db098f84e8447b3918edf62725066d610cce04c49df1af320117",
-  "lambda/agente_priorizacion/contrato/entrada.v2_1.schema.json": "786e394936c1003057c598f5f03a3ee8e4ce97e7a18cc4a5d281f1ae290fbbf7",
-  "lambda/agente_priorizacion/contrato/politica-verificacion-v1.json": "3b51cb0b6cbd1c5f1c6248f974a5446cd06732505b94307a2aa263c2b9825d4f",
-  "lambda/agente_priorizacion/contrato/salida.v2.schema.json": "dff26b5a711909021a7f9506f7263f1d57a6f94a1397ee63f287ef1595c3de2e",
-  "lambda/agente_priorizacion/esquema.py": "36c4bb4dae2c637192059e3b2a668b9c3baf5c728be20aa49225cff5124cf3ac",
-  "lambda/agente_priorizacion/output_guard_v2_1.py": "d0a0ca47ecde51f1285a560907f07184b4ee5ceaf3b5aa0c869b043d76be56c1",
-  "simular_motor_v133.py": "8205fc1c369ad302c66b39a6ba4e2d19a3cdb43922e1fc4f89578c2d601cc4a8",
-  "tests/fixtures.py": "e3a92ab7d94caa06f9b39e50229b48aa2fd536ccf63b7eecde12be0b29574b05",
-  "tests/test_adaptador_v2_1.py": "f9519d3a5d088873681e0e765799db1edc8deb917121cd48a1cafd01f072fd8e",
-  "tests/test_output_guard_v2_1.py": "2ad63ffe5079beed7551f7dd3952a62ebe9b11c513cd11e936afaebd2fbd7851"
- }
+  "version": "contrato-v2.1-rc3",
+  "fecha": "2026-11-20",
+  "emisor": "equipo Bedrock",
+  "estado": "borrador acordado; sin desplegar en AWS",
+  "contratos": {
+    "entrada": "agente-entrada-v2.1",
+    "salida": "agente-salida-v2",
+    "politica_verificacion": "1.0.0-borrador",
+    "politica_verificacion_sha256_canonico": "aa9d30a1b034b5f35d71478ed8c657f526b0c47e7e94890e6d41ef6805786c04",
+    "adaptador": "adaptador_v2_1",
+    "output_guard": "output-guard-v2.1"
+  },
+  "hash_canonico": "sha256 de json.dumps(obj, sort_keys=True, ensure_ascii=False, separators=(',', ':')) en UTF-8",
+  "requisitos": "Python 3.9 o superior; solo biblioteca estandar; sin red ni AWS",
+  "comandos": {
+    "pruebas_unitarias": "python3 -m unittest discover -s tests",
+    "casos_aceptacion": "python3 contrato/ejecutar_aceptacion.py",
+    "invariante_con_salida_real": "python3 contrato/ejecutar_aceptacion.py --motor <salida_real_del_motor.json>",
+    "regenerar_casos_desde_simulacion": "python3 simular_motor_v133.py && python3 contrato/generar_casos_aceptacion.py",
+    "aceptacion_con_motor_y_reporte": "python3 contrato/ejecutar_aceptacion.py --motor salida.json --reporte cobertura.json"
+  },
+  "resultados_esperados": {
+    "pruebas_unitarias": "85 OK",
+    "casos_aceptacion": "15/15 (CA-01 a CA-14 + INV-01)",
+    "casos_aceptacion_con_motor": "17/17 (CA-01 a CA-14 + INV-01 + INV-02 + INV-03)"
+  },
+  "como_usar_casos": "Cada contrato/casos_aceptacion/CA-*.json trae 'motor' (salida simulada con UNA evaluacion) y 'esperado' (el contrato). El equipo del motor sustituye solo 'motor' por la salida real de su candidato para ese escenario; 'esperado' no se modifica.",
+  "insumos": {
+    "insumos/motor-v1.3.2.1-real.json": "salida real de la corrida 2f9ed42d (sin PII)",
+    "insumos/motor-v1.3.3.json": "SIMULADA con la forma acordada v2.1; contexto, cruce y verificacion estimados",
+    "contexto/modelo_negocio_lyft.json": "modelo de negocio en borrador (aprobado=false)"
+  },
+  "archivos_sha256": {
+    "contexto/modelo_negocio_lyft.json": "06c75a68828ec81cfc3913841874143521f35dac184e7937e97abd25e8ba9de9",
+    "contrato/casos_aceptacion/CA-01.json": "91b65bbd16f983eac3d997e3ee585b203b56b02cc1061d0bd9a82084099ec75a",
+    "contrato/casos_aceptacion/CA-02.json": "90ec1e0aadfd40d46279fcbb54bb6a01549e2f800dc92f3bc9d80426855c4dd7",
+    "contrato/casos_aceptacion/CA-03.json": "3acef87523373da731366a6e6556558d8d1f82b976efba41cafd6f1c5217e9ae",
+    "contrato/casos_aceptacion/CA-04.json": "9253b0d0887893ff6256d75811bf25df27da508c95e2ccc10a5822423eb40f0e",
+    "contrato/casos_aceptacion/CA-05.json": "2fbc25dd4d57568e958430f94d7b28d8e544dfd1acfe7bae2bee3a265add7b5f",
+    "contrato/casos_aceptacion/CA-06.json": "f13a774010cc2c266de7a9d30111d1be7a8a12079e7800f99a4fbbafaa9ab2b8",
+    "contrato/casos_aceptacion/CA-07.json": "a03d12f90f39a3964eba82c8aef69f8c235d2211fa3daca49ec37b6a0459b408",
+    "contrato/casos_aceptacion/CA-08.json": "08afe130102867ad7d5118c069a232ff5b05747320209dd803dc27419bc33e56",
+    "contrato/casos_aceptacion/CA-09.json": "ae70e222c507b9e3303040eaeceec56083b4d575bf7680e1a2c68a422fcc9369",
+    "contrato/casos_aceptacion/CA-10.json": "1f0869211a7578bd8f07a74b4db25a52f774cc5c1f8d8ea07c4e7565d65829c5",
+    "contrato/casos_aceptacion/CA-11.json": "bf46e0e66cb52e0fbc3ec68c3933decc0462fdda4a183174aab6f71ad7991d34",
+    "contrato/casos_aceptacion/CA-12.json": "6bbbb1c0fd57c869f082ad37513e6770e74deb71b6e03cbd453b637355233cca",
+    "contrato/casos_aceptacion/CA-13.json": "f2b7201c96ff7ffc3d7aadd8251b4a990e92b75769403f7266a59bfb61a0bfc6",
+    "contrato/casos_aceptacion/CA-14.json": "3499934c45574b1cc5a75523de8c984836c48ce0276d661e93ce472f66b80304",
+    "contrato/ejecutar_aceptacion.py": "ebfb45356e462ed50f29570e82cad27c3ec4ae27cd4e430f6931bbeeaaa1a4ad",
+    "contrato/generar_casos_aceptacion.py": "8bc9728e9646fff7d0fdb6f46a68711ba3b52e65ad399ab97b0a2720adf06829",
+    "insumos/motor-v1.3.2.1-real.json": "a5a1734ac1ed213d93823714115cf928811fef807af953a29d5c2968e3b2c864",
+    "insumos/motor-v1.3.3.json": "b9462bf9519b1c948266a7b2e79fde1f67f476187719fe2521e9e080e033d5b5",
+    "lambda/agente_priorizacion/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "lambda/agente_priorizacion/adaptador_v2_1.py": "8c0d2cd4bb85db098f84e8447b3918edf62725066d610cce04c49df1af320117",
+    "lambda/agente_priorizacion/contrato/entrada.v2_1.schema.json": "786e394936c1003057c598f5f03a3ee8e4ce97e7a18cc4a5d281f1ae290fbbf7",
+    "lambda/agente_priorizacion/contrato/politica-verificacion-v1.json": "3b51cb0b6cbd1c5f1c6248f974a5446cd06732505b94307a2aa263c2b9825d4f",
+    "lambda/agente_priorizacion/contrato/salida.v2.schema.json": "dff26b5a711909021a7f9506f7263f1d57a6f94a1397ee63f287ef1595c3de2e",
+    "lambda/agente_priorizacion/esquema.py": "36c4bb4dae2c637192059e3b2a668b9c3baf5c728be20aa49225cff5124cf3ac",
+    "lambda/agente_priorizacion/output_guard_v2_1.py": "d0a0ca47ecde51f1285a560907f07184b4ee5ceaf3b5aa0c869b043d76be56c1",
+    "simular_motor_v133.py": "8205fc1c369ad302c66b39a6ba4e2d19a3cdb43922e1fc4f89578c2d601cc4a8",
+    "tests/fixtures.py": "e3a92ab7d94caa06f9b39e50229b48aa2fd536ccf63b7eecde12be0b29574b05",
+    "tests/test_adaptador_v2_1.py": "f9519d3a5d088873681e0e765799db1edc8deb917121cd48a1cafd01f072fd8e",
+    "tests/test_output_guard_v2_1.py": "2ad63ffe5079beed7551f7dd3952a62ebe9b11c513cd11e936afaebd2fbd7851"
+  },
+  "cambios_desde_rc1": [
+    "contrato/ejecutar_aceptacion.py: con --motor se agrega INV-02 (cobertura). La invariante INV-01 ya no puede pasar en vacio: si ninguna evaluacion real llega al agente, la ejecucion falla e informa el motivo de rechazo por lote. InconsistenciaMotor en INV-01 se registra como falla en lugar de abortar. Sin cambios en esquemas, politica, adaptador ni guard.",
+    "rc3 - contrato/ejecutar_aceptacion.py: (1) corrige el orden de captura: InconsistenciaMotor es subclase de DatoFaltante y en rc2 se contaba como rechazo, de modo que una salida real que perforaba un piso pasaba 16/16; ahora es FALLA de INV-01. (2) Una entrada que no cumple el esquema v2.1 se registra como FALLA en lugar de abortar. (3) INV-03 (cobertura individual, solicitada por el equipo del motor): cada hallazgo recibe un veredicto propio en enrutamiento de produccion y de demostracion; toda omision debe estar justificada individualmente (NO_ENRUTADO, ESTADO_NO_ENVIABLE o dato faltante propio del caso); un rechazo de lote (politica, tenant, contexto ausente) o un hallazgo con error en el motor es FALLA; se cuadran total_leidos, total_evaluados y errores. (4) --reporte guarda el reporte por hallazgo en JSON. Sin cambios en esquemas, politica, adaptador ni guard."
+  ]
 }
