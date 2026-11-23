@@ -721,7 +721,8 @@ Resources:
     Properties:
       Name: !Sub "${NombreProyecto}-resumen-diario"
       Description: "Resumen diario a Slack: la hora se cambia desde el panel (Configuracion)"
-      ScheduleExpression: cron(0 9 * * ? *)
+      # 14:00 UTC = 08:00 hora de la Ciudad de Mexico (antes 09:00 UTC = 03:00). Esa corrida no invoca al agente.
+      ScheduleExpression: cron(0 14 * * ? *)
       State: ENABLED
       Targets:
         - Arn: !Ref FlujoDiario
@@ -908,6 +909,21 @@ Resources:
             Action: sts:AssumeRole
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
+      Policies:
+        # Solo lectura de las asesorias del agente del tenant Lyft (ruta fija; sin escritura ni otros prefijos).
+        - PolicyName: leer-asesorias-agente
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: s3:GetObject
+                Resource: !Sub "${BucketCurada.Arn}/agente/11111111-1111-1111-1111-111111111111/*"
+              - Effect: Allow
+                Action: s3:ListBucket
+                Resource: !GetAtt BucketCurada.Arn
+                Condition:
+                  StringLike:
+                    s3:prefix: "agente/11111111-1111-1111-1111-111111111111/*"
 
   FuncionApiDatos:
     Type: AWS::Lambda::Function
@@ -931,6 +947,7 @@ Resources:
         Variables:
           DB_HOST: !GetAtt BaseDatosRDS.Endpoint.Address
           DB_PASSWORD: !Ref ClaveUsuarios
+          BUCKET_CURADA: !Ref BucketCurada
 
   RolApiSistema:
     Type: AWS::IAM::Role
