@@ -61,7 +61,7 @@ def normalizacion(event, context):
 
 def carga_vulnerabilidades(event, context):
     import rds_cargar_vulnerabilidades as m
-    argv = _base() + ["--inventario", os.path.join(AQUI, "activos_v3.csv")]
+    argv = _base() + ["--inventario", os.path.join(AQUI, "activos.csv")]
     if os.environ.get("BUCKET_CURADA"):
         argv += ["--bucket-curada", os.environ["BUCKET_CURADA"]]
     return _correr(m, argv + list((event or {}).get("argv_extra", [])))
