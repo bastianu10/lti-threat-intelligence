@@ -41,7 +41,8 @@ Parameters:
     Description: Version del paquete lti-agente-<version>.zip en s3://<bucket curada>/artefactos/ (agente asesor).
   ModoDemoAgente:
     Type: String
-    Default: "true"
+    # 24-nov: produccion. Con la corrida f332e8ef, true y false dan los mismos 10 casos asesorables.
+    Default: "false"
     AllowedValues: ["true", "false"]
     Description: true envia los casos al agente (demostracion); false aplica la politica de enrutamiento (P1/P2, KEV, ambiguos).
 Resources:
