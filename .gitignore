@@ -6,3 +6,5 @@ venv/
 .DS_Store
 auditoria-aws-*
 paquetes/
+respaldo/
+/plantilla-aws.yaml

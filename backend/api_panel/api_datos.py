@@ -18,6 +18,7 @@ import decimal
 import json
 import os
 import re
+import ssl
 import uuid
 
 import lti_db
@@ -25,15 +26,47 @@ import lti_db
 TENANT = os.environ.get("TENANT_ID", lti_db.TENANT_LYFT)
 
 
-class _Args:
-    pass
+USUARIO_BD = "u_dashboard"
+AQUI = os.path.dirname(os.path.abspath(__file__))
+_rds = None
+
+
+def _contexto_tls():
+    """H1b (v10): TLS con validacion completa (cadena de la CA de RDS + nombre del host), como el notificador.
+    Antes se usaba lti_db.conectar con CERT_NONE: cifraba, pero no autenticaba al servidor."""
+    ruta = os.environ.get("DB_CA_BUNDLE") or os.path.join(AQUI, "rds-ca-bundle.pem")
+    if not os.path.isfile(ruta):
+        raise RuntimeError("No se encontro el certificado de las CA de RDS")
+    ctx = ssl.create_default_context(cafile=ruta)
+    ctx.minimum_version = ssl.TLSVersion.TLSv1_2
+    return ctx
+
+
+def _clave(host):
+    """H1 (v10): con DB_AUTH_MODE=iam la clave es un token de 15 min firmado localmente con el rol de la Lambda
+    (no requiere red ni secretos). password_env solo existe para reversion y pruebas locales."""
+    global _rds
+    modo = os.environ.get("DB_AUTH_MODE", "password_env")
+    if modo == "iam":
+        if _rds is None:
+            import boto3
+            _rds = boto3.client("rds")
+        return _rds.generate_db_auth_token(DBHostname=host, Port=5432, DBUsername=USUARIO_BD,
+                                           Region=os.environ.get("AWS_REGION"))
+    if modo == "password_env":
+        return os.environ["DB_PASSWORD"]
+    raise RuntimeError("DB_AUTH_MODE invalido")
 
 
 def _con():
-    a = _Args()
-    a.host, a.port, a.db = os.environ["DB_HOST"], 5432, "lti"
-    a.user, a.password, a.sin_ssl = "u_dashboard", os.environ["DB_PASSWORD"], bool(os.environ.get("LTI_SIN_SSL"))
-    return lti_db.conectar(a, TENANT)
+    import pg8000.native as pg
+    host = os.environ["DB_HOST"]
+    ctx = None if os.environ.get("LTI_SIN_SSL") else _contexto_tls()   # LTI_SIN_SSL: solo base local de pruebas
+    con = pg.Connection(USUARIO_BD, host=host, port=5432, database="lti", password=_clave(host),
+                        ssl_context=ctx, timeout=10)
+    con.run("SET TIME ZONE 'UTC'")
+    con.run("SELECT set_config('app.tenant_id', :t, false)", t=TENANT)   # RLS: igual que lti_db.conectar
+    return con
 
 
 def _q(con, sql, **p):

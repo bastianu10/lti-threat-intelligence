@@ -34,7 +34,7 @@ import time
 from typing import Any
 
 from agente_priorizacion.adaptador_v2_1 import DatoFaltante, InconsistenciaMotor, cargar_politica, construir_entrada
-from agente_priorizacion.output_guard_v2_1 import EntradaInvalida, aplicar
+from agente_priorizacion.output_guard_v2_1 import VERSION_GUARD, EntradaInvalida, aplicar
 from agente_priorizacion.herramienta import HERRAMIENTA, config_herramienta
 from agente_priorizacion.coherencia import marcar_dominio, marcar_texto, normalizar_escalar
 
@@ -45,6 +45,12 @@ RAIZ = pathlib.Path(__file__).resolve().parent
 MAX_CASOS = 50
 RE_UUID = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
 RE_SHA = re.compile(r"^[0-9a-f]{64}$")
+# O-3 (24-nov): reutilizacion de asesorias. Si los datos del caso no cambiaron, no se vuelve a llamar a Bedrock.
+REUSO_DIAS = float(os.environ.get("REUSO_DIAS", "5"))      # < 7: el panel y el notificador leen 7 dias
+VOLATILES = (("corrida_id",), ("trazabilidad", "evaluacion_sha256"), ("trazabilidad", "snapshot_id"),
+             ("comparacion_previa", "fecha"), ("comparacion_previa", "corrida_id_origen"),
+             ("comparacion_previa", "misma_corrida"))
+RE_INSTANTE = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?")
 
 _clientes: dict[str, Any] = {}
 POLITICA = cargar_politica()
@@ -202,6 +208,58 @@ def _sin_asesoria(hallazgo_id: str, motivo: str, **extra) -> dict:
             "revision": "alta" if motivo in ("guardrail_bloqueo_entrada", "inconsistencia_motor") else "normal", **extra}
 
 
+def clave_reuso(cfg: dict, entrada: dict, prompt_sha: str) -> str:
+    """Huella de lo que el modelo ve y de como se valida, sin los campos que cambian en cada corrida (id de corrida,
+    instantaneas, hash con marca de tiempo del motor). Si cambia un dato del caso, la evaluacion del motor, el modelo
+    de negocio, el prompt, el modelo, el guardrail o el guard, la huella cambia y se vuelve a asesorar."""
+    import copy
+    e = copy.deepcopy(entrada)
+    for ruta in VOLATILES:
+        nodo = e
+        for k in ruta[:-1]:
+            nodo = nodo.get(k) if isinstance(nodo, dict) else None
+        if isinstance(nodo, dict):
+            nodo.pop(ruta[-1], None)
+    texto = json.dumps(e, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    texto = RE_INSTANTE.sub("<t>", texto.replace(entrada.get("corrida_id") or "\x00", "<c>"))
+    base = {"e": texto, "prompt": prompt_sha, "guard": VERSION_GUARD, "modelo": cfg["modelo"],
+            "guardrail": [cfg["guardrail_id"], cfg["guardrail_version"]]}
+    return hashlib.sha256(json.dumps(base, sort_keys=True).encode("utf-8")).hexdigest()
+
+
+def _clave_indice(cfg: dict, hid: str, clave: str) -> str:
+    return f"agente/{cfg['tenant']}/reuso/{hid}-{clave[:32]}.json"
+
+
+def _buscar_reuso(cfg: dict, hid: str, clave: str) -> tuple[str, dict] | None:
+    """Devuelve (clave_s3, documento) de una asesoria aceptada con la misma huella y vigente; ante cualquier duda, None
+    (se asesora de nuevo: el reuso solo ahorra, nunca decide)."""
+    s3 = _cliente("s3")
+    try:
+        ind = json.loads(s3.get_object(Bucket=cfg["bucket_curada"], Key=_clave_indice(cfg, hid, clave))["Body"].read())
+        if ind.get("clave") != clave or time.time() - float(ind["creado_epoch"]) > REUSO_DIAS * 86400:
+            return None
+        origen = ind["destino"]
+        if not re.match(rf"^agente/{re.escape(cfg['tenant'])}/[0-9a-f-]{{36}}/{re.escape(hid)}-[0-9a-f]{{16}}\.json$", origen):
+            return None
+        doc = json.loads(s3.get_object(Bucket=cfg["bucket_curada"], Key=origen)["Body"].read())
+        if doc.get("estado") != "aceptada" or doc.get("hallazgo_id") != hid:
+            return None
+        return origen, doc
+    except Exception as exc:   # NoSuchKey, AccessDenied, JSON invalido...: sin reuso
+        log.info("sin reuso hallazgo=%s motivo=%s", hid, type(exc).__name__)
+        return None
+
+
+def _registrar_reuso(cfg: dict, hid: str, clave: str, destino: str) -> None:
+    try:
+        cuerpo = json.dumps({"clave": clave, "destino": destino, "creado_epoch": time.time()}).encode("utf-8")
+        _cliente("s3").put_object(Bucket=cfg["bucket_curada"], Key=_clave_indice(cfg, hid, clave), Body=cuerpo,
+                                  ContentType="application/json", ServerSideEncryption="AES256")
+    except Exception as exc:
+        log.warning("no se registro el indice de reuso hallazgo=%s motivo=%s", hid, type(exc).__name__)
+
+
 def _asesorar(cfg: dict, evento: dict) -> dict:
     hid = evento.get("hallazgo_id")
     if not (isinstance(hid, str) and RE_UUID.match(hid)):
@@ -222,12 +280,23 @@ def _asesorar(cfg: dict, evento: dict) -> dict:
     if entrada is None:
         return _sin_asesoria(hid, "no_enrutado")
 
+    prompt = (RAIZ / "prompts" / cfg["prompt"]).read_text("utf-8")
+    prompt_sha = hashlib.sha256(prompt.encode("utf-8")).hexdigest()
+    clave = clave_reuso(cfg, entrada, prompt_sha)
+    previo = _buscar_reuso(cfg, hid, clave)
+    if previo:                 # mismos datos, mismo prompt, mismo guard: se publica la asesoria vigente sin Bedrock
+        origen, doc = previo
+        destino = f"agente/{cfg['tenant']}/{entrada['corrida_id']}/{origen.rsplit('/', 1)[1]}"
+        _guardar(cfg, destino, {**doc, "reutilizada": {"de": origen, "corrida_id": entrada["corrida_id"]}})
+        log.info("reutilizado hallazgo=%s de=%s", hid, origen)
+        return {"hallazgo_id": hid, "estado": "reutilizado", "recomendacion": doc["recomendacion"]["efectiva"],
+                "revision": doc["revision"]["prioridad"], "destino": destino}
+
     intervino, politicas = _guardrail(cfg, _textos_terceros(entrada), "INPUT")
     if intervino:          # no se envia al modelo un texto que el guardrail considera ataque
         log.warning("guardrail INPUT hallazgo=%s politicas=%s", hid, politicas)
         return _sin_asesoria(hid, "guardrail_bloqueo_entrada", politicas=politicas)
 
-    prompt = (RAIZ / "prompts" / cfg["prompt"]).read_text("utf-8")
     salida, meta = _invocar_modelo(cfg, prompt, entrada)
     try:
         res = aplicar(entrada, salida, tenant_autorizado=cfg["tenant"])
@@ -250,10 +319,11 @@ def _asesorar(cfg: dict, evento: dict) -> dict:
     res = marcar_texto(entrada, marcar_dominio(entrada, normalizar_escalar(entrada, res), modelo))
 
     documento = {**res, "modelo": cfg["modelo"],
-                 "prompt_sha256": hashlib.sha256(prompt.encode("utf-8")).hexdigest(),
+                 "prompt_sha256": prompt_sha,
                  "guardrail": {"id": cfg["guardrail_id"], "version": cfg["guardrail_version"]},
                  "meta": meta, "entrada": entrada}
     _guardar(cfg, res["destino_s3"], documento)
+    _registrar_reuso(cfg, hid, clave, res["destino_s3"])
     log.info("asesorado hallazgo=%s recomendacion=%s revision=%s tokens=%s latencia_ms=%s", hid,
              res["recomendacion"]["efectiva"], res["revision"]["prioridad"],
              meta["uso"].get("outputTokens"), meta["latencia_ms"])
