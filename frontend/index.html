@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <!-- F-4: CSP estricta. Si cambias el script en linea, recalcula su sha256 (scripts/csp_hash.py). -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-S3VmTyupetUQ1zHIfVbNahc16M1Vu7+qAkEYWYMX+Jw='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self' https://cognito-idp.us-east-2.amazonaws.com; img-src 'self' data:; manifest-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'; upgrade-insecure-requests">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-AoVMsJlsw86oxaCkWW+HtWqOs7xUu2pXuSDPlbyzVT0='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self' https://cognito-idp.us-east-2.amazonaws.com; img-src 'self' data:; manifest-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'; upgrade-insecure-requests">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Lyft Threat Intelligence</title>
 <meta name="color-scheme" content="light dark">
@@ -223,6 +223,16 @@ body.sinsesion .main{overflow-x:clip;padding:0;min-height:100vh;display:grid;pla
 .ase-aviso{display:flex;gap:8px;align-items:flex-start;margin:14px 0;padding:10px 12px;border-radius:10px;background:var(--warn-bg);color:var(--warn);font-size:13px;line-height:1.45}
 .ase-aviso svg{flex:none;margin-top:3px}
 .ase-prio{display:grid;gap:8px}
+.ase-evol{display:grid;gap:8px}
+.ase-et{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.ase-et>div{border:1px solid var(--line);border-radius:10px;padding:9px 10px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.ase-et .et-t{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:600}
+.ase-et .et-v{font-size:13px;min-height:24px}
+.ase-et .et-d{font-size:11.5px;color:var(--muted);line-height:1.35}
+.ase-et>div.et-hip{border-style:dashed;background:var(--soft2)}
+@media(max-width:420px){.ase-et{grid-template-columns:1fr}}
+.ase-demo{margin-top:8px;font-size:12.5px;color:var(--muted)}
+.ase-demo summary{cursor:pointer}
 .ase-prio>div{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 10px;border:1px solid var(--line);border-radius:10px;font-size:13px}
 .ase-nota,.ase-m{color:var(--muted);font-size:12.5px;line-height:1.45;margin:2px 0}
 .ase-sec{border-top:1px solid var(--line);padding-top:12px;margin-top:12px}
@@ -477,10 +487,27 @@ function abrirAsesoria(fila,boton){
 function aseHtml(a,fila){
   var m=a.motor||{},pc=PRIO[fila.prioridad_final],pm=PRIO[m.prioridad_final],r=a.recomendacion||{},es=a.escenario||{},
       pd=a.propuesta_dueno||{},rv=a.revision||{},cx=a.contexto_negocio||{};
-  var h='<div class="ase-prio"><div><span>Prioridad en el panel (cruce determinista)</span>'+(pc?'<span class="pill '+pc[1]+'">'+pc[0]+'</span>':'<span>—</span>')+'</div>'+
-    '<div><span>Motor contextual '+esc(m.version||"")+' (modo sombra)</span><span>'+(pm?'<span class="pill '+pm[1]+'">P'+m.prioridad_final+' · '+pm[0]+'</span>':'—')+'</span></div>'+
+  /* Evolucion de la prioridad en cuatro etapas (acordado con el equipo del motor, 24-nov). Reglas: lo oficial, lo sombra,
+     lo hipotetico y lo decidido se distinguen; no hay prioridad simulada si la aplicabilidad esta condicionada; el agente
+     nunca fija una prioridad; el ejemplo sintetico nunca se presenta como aprobacion real. */
+  function etapa(titulo,valor,est,det,hip){return '<div'+(hip?' class="et-hip"':'')+'><span class="et-t">'+titulo+'</span><span class="et-v">'+valor+'</span>'+
+    '<span><span class="pill '+est[1]+'">'+est[0]+'</span></span><span class="et-d">'+det+'</span></div>'}
+  var cond=pd.condicion==="condicionada_a_confirmar_aplicabilidad";
+  var h='<section class="ase-evol" aria-label="Evolución de la prioridad"><div class="ase-et">'+
+    etapa("1 · Cruce",pc?'<span class="pill '+pc[1]+'">'+pc[0]+'</span>':'—',["Oficial","st-ok"],"Prioridad vigente en el panel.")+
+    etapa("2 · Motor contextual",pm?'<span class="pill '+pm[1]+'">P'+m.prioridad_final+' · '+pm[0]+'</span>':'—',["Sombra","st-warn"],
+      "Referencia "+esc(m.version||"")+(m.tipo==="investigacion"?"; de investigación":"")+". No reemplaza la oficial.")+
+    etapa("3 · Con la valoración del agente",'<span class="ase-m">'+(cond?"No se calcula":"Sin escenario calculado")+'</span>',
+      cond?["Condicionado","st-warn"]:["Sin escenario","st-off"],
+      (cond?"Primero hay que confirmar que la vulnerabilidad aplica. ":"")+"Propuesta: P "+esc(pd.probabilidad==null?"—":pd.probabilidad)+" × I "+esc(pd.impacto==null?"—":pd.impacto)+"; no vinculante.",true)+
+    etapa("4 · Decisión del dueño",'<span class="ase-m">—</span>',["Pendiente","st-off"],"La prioridad oficial solo cambia con una aprobación autenticada y el recálculo del motor.")+
+    '</div>'+
     (m.tipo==="investigacion"?'<p class="ase-nota">Prioridad de <b>investigación</b>: primero hay que confirmar que la vulnerabilidad aplica; después, remediar.</p>':'')+
-    (pc&&pm&&fila.prioridad_final!==m.prioridad_final?'<p class="ase-nota">Las dos prioridades difieren porque el motor contextual aún funciona en modo sombra: su valor es una referencia y no reemplaza la prioridad del panel.</p>':'')+'</div>';
+    (pc&&pm&&fila.prioridad_final!==m.prioridad_final?'<p class="ase-nota">El cruce y el motor difieren porque el motor contextual aún funciona en modo sombra: su valor es una referencia y no reemplaza la prioridad del panel.</p>':'')+
+    '<details class="ase-demo"><summary>Ejemplo sintético: cómo cambiaría la prioridad tras una aprobación</summary>'+
+    '<p><b>No es un hallazgo real ni una aprobación real.</b> En un caso de laboratorio del equipo del motor, el motor calcula P4 (riesgo residual 2/9). '+
+    'Si el dueño aprobara una valoración P = 2 e I = 3, el motor recalcularía <b>P2</b> (riesgo residual 6/9). La prioridad la calcula siempre el motor, nunca el agente.</p></details>'+
+    '</section>';
   h+=aseSec("Por qué tiene esta prioridad",a.explicacion?'<p>'+esc(a.explicacion)+'</p>':'');
   h+=aseSec("Recomendación de urgencia",'<p><b>'+esc(ASE_REC[r.efectiva]||r.efectiva||"—")+'</b>'+
     (r.propuesta&&r.propuesta!==r.efectiva?' <span class="chip">el modelo propuso: '+esc(ASE_REC[r.propuesta]||r.propuesta)+'</span>':'')+'</p>'+
