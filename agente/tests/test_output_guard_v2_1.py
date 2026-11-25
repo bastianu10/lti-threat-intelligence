@@ -261,10 +261,22 @@ class TestDecision(unittest.TestCase):
         self.assertEqual(r["revision"]["prioridad"], "alta")
 
     def test_baja_bloqueada_en_investigacion_y_kev(self):
-        r = aplicar(e(), bajar(s()), tenant_autorizado=TENANT)
+        x = e()
+        x["contexto_negocio"]["aprobado"] = False   # independiente del modelo vigente en el repo (v1 ya aprobado)
+        r = aplicar(x, bajar(s()), tenant_autorizado=TENANT)
         self.assertEqual(r["recomendacion"]["efectiva"], "mantener")
         for m in ("baja_sin_aplicabilidad_confirmada", "baja_con_kev_no_verificado", "baja_con_exposicion_no_verificado",
                   "baja_bloqueada_por_piso", "baja_sin_modelo_negocio_aprobado"):
+            self.assertIn(m, r["revision"]["motivos"])
+
+    def test_modelo_aprobado_no_basta_para_bajar(self):
+        """C (24-nov): aprobar el modelo de negocio retira solo ese motivo; con datos sin verificar la baja sigue bloqueada."""
+        x = e()
+        x["contexto_negocio"]["aprobado"] = True
+        r = aplicar(x, bajar(s()), tenant_autorizado=TENANT)
+        self.assertEqual(r["recomendacion"]["efectiva"], "mantener")
+        self.assertNotIn("baja_sin_modelo_negocio_aprobado", r["revision"]["motivos"])
+        for m in ("baja_sin_aplicabilidad_confirmada", "baja_con_kev_no_verificado", "baja_con_exposicion_no_verificado"):
             self.assertIn(m, r["revision"]["motivos"])
 
     def test_baja_bloqueada_con_kev_verificado(self):
