@@ -103,11 +103,12 @@ def calcular(con):
         SELECT count(*) FILTER (WHERE prioridad_final = 1)                          AS criticas,
                count(*) FILTER (WHERE prioridad_final = 2)                          AS altas,
                count(*) FILTER (WHERE prioridad_final = 3)                          AS medias,
-               count(*) FILTER (WHERE prioridad_final = 4 OR prioridad_final IS NULL) AS bajas,
+               count(*) FILTER (WHERE prioridad_final = 4)                           AS bajas,
+               count(*) FILTER (WHERE prioridad_final IS NULL)                       AS sin_prioridad,
                count(*) FILTER (WHERE en_kev)                                       AS kev,
                count(*) FILTER (WHERE epss >= 0.5)                                  AS epss_alto,
                count(*) FILTER (WHERE fecha_limite <= current_date + 2)             AS sla_por_vencer
-          FROM v_lista_oficial WHERE NOT es_cerrado AND NOT no_aplica AND (NOT agente_activo OR evaluado_por_agente)""")[0]
+          FROM v_lista_oficial WHERE NOT es_cerrado AND NOT no_aplica""")[0]
     h["activos_expuestos"] = con.run(
         "SELECT count(DISTINCT activo_id) FROM despliegues WHERE expuesto_internet AND dado_de_baja_en IS NULL")[0][0]
     h["activos_total"] = con.run("SELECT count(*) FROM activos WHERE dado_de_baja_en IS NULL")[0][0]
@@ -118,6 +119,8 @@ def calcular(con):
 
 def snapshot(con):
     m = calcular(con)
+    # sin_prioridad no tiene columna en metricas_diarias (aun); se excluye del INSERT.
+    ins = {k: m[k] for k in m if k != "sin_prioridad"}
     con.run("""
         INSERT INTO metricas_diarias (tenant_id, dia, criticas, altas, medias, bajas, kev, epss_alto, sla_por_vencer,
                                       activos_expuestos, activos_total, sin_registrar)
@@ -127,7 +130,7 @@ def snapshot(con):
             criticas = EXCLUDED.criticas, altas = EXCLUDED.altas, medias = EXCLUDED.medias, bajas = EXCLUDED.bajas,
             kev = EXCLUDED.kev, epss_alto = EXCLUDED.epss_alto, sla_por_vencer = EXCLUDED.sla_por_vencer,
             activos_expuestos = EXCLUDED.activos_expuestos, activos_total = EXCLUDED.activos_total,
-            sin_registrar = EXCLUDED.sin_registrar, calculado_en = now()""", t=TENANT, **m)
+            sin_registrar = EXCLUDED.sin_registrar, calculado_en = now()""", t=TENANT, **ins)
     return m
 
 
@@ -191,7 +194,7 @@ def cobertura(con, _p):
 
 def por_criticidad(con, _p):
     return {"items": _q(con, "SELECT criticidad, count(*) AS total FROM v_lista_oficial "
-                             "WHERE NOT es_cerrado AND NOT no_aplica AND (NOT agente_activo OR evaluado_por_agente) GROUP BY criticidad ORDER BY criticidad DESC")}
+                             "WHERE NOT es_cerrado AND NOT no_aplica GROUP BY criticidad ORDER BY criticidad DESC")}
 
 
 def ambiguos(_con, _p):
@@ -388,7 +391,8 @@ def reporte_semanal(con, _p):
                NULL::numeric AS cvss
           FROM v_lista_oficial v WHERE {OFICIAL} {ORDEN}""")
     cves = _por_cve(filas)
-    por_p = {str(n): sum(1 for f in filas if (f["prioridad_final"] or 4) == n) for n in (1, 2, 3, 4)}
+    por_p = {str(n): sum(1 for f in filas if f["prioridad_final"] == n) for n in (1, 2, 3, 4)}
+    por_p["sin_prioridad"] = sum(1 for f in filas if f["prioridad_final"] is None)
     vencidos = [f for f in filas if f["fecha_limite"] and f["fecha_limite"] < hoy]
     max_dias = max(((hoy - f["fecha_limite"]).days for f in vencidos), default=0)
 
@@ -489,7 +493,8 @@ ETIQ = {1: "Crítica", 2: "Alta", 3: "Media", 4: "Baja"}
 PLURAL = {1: "críticas", 2: "altas", 3: "medias", 4: "bajas"}
 SINGULAR = {1: "crítica", 2: "alta", 3: "media", 4: "baja"}
 MESES = ("ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic")
-OFICIAL = "NOT v.es_cerrado AND NOT v.no_aplica AND (NOT v.agente_activo OR v.evaluado_por_agente)"
+# P0.3: la lista oficial no excluye hallazgos por estado del agente; el agente es una dimension separada.
+OFICIAL = "NOT v.es_cerrado AND NOT v.no_aplica"
 
 
 def _fecha(d):
@@ -502,7 +507,8 @@ def _por_cve(filas):
     for f in filas:
         x = g.setdefault(f["cve"], {"cve": f["cve"], "nivel": 4, "riesgo": 0, "cvss": None, "epss": None,
                                     "kev": False, "internet": False, "plazo": None, "activos": []})
-        x["nivel"] = min(x["nivel"], f["prioridad_final"] or 4)
+        if f["prioridad_final"] is not None:
+            x["nivel"] = min(x["nivel"], f["prioridad_final"])
         x["riesgo"] = max(x["riesgo"], float(f["puntaje_riesgo"] or 0))
         x["cvss"] = f["cvss"] if x["cvss"] is None else x["cvss"]
         x["epss"] = f["epss"] if x["epss"] is None else x["epss"]
@@ -536,7 +542,9 @@ def _bloque(x):
 
 
 def _cuenta(filas):
-    return {k: sum(1 for f in filas if (f["prioridad_final"] or 4) == k) for k in (1, 2, 3, 4)}
+    c = {k: sum(1 for f in filas if f["prioridad_final"] == k) for k in (1, 2, 3, 4)}
+    c["sin_prioridad"] = sum(1 for f in filas if f["prioridad_final"] is None)
+    return c
 
 
 def _semaforo(c):
@@ -560,7 +568,7 @@ def alerta(con, cfg):
         SELECT {CAMPOS} FROM v_lista_oficial v
          WHERE {OFICIAL}
            AND NOT EXISTS (SELECT 1 FROM alertas_enviadas a WHERE a.hallazgo_id = v.hallazgo_id)
-           AND (coalesce(v.prioridad_final, 4) <= CAST(:nivel AS integer) OR v.epss >= CAST(:epss AS numeric))
+           AND (v.prioridad_final <= CAST(:nivel AS integer) OR v.epss >= CAST(:epss AS numeric))
            AND (NOT CAST(:kev AS boolean) OR v.en_kev)
          {ORDEN}""", nivel=nivel, epss=float(cfg.get("epss", 0.5)), kev=bool(cfg.get("soloKev")))
     if not filas:

@@ -60,9 +60,10 @@ def conectar_db():
     import pg8000.native as pg
     ctx = None
     if not os.environ.get("DB_SIN_SSL"):
-        ctx = ssl.create_default_context()
-        ctx.check_hostname = False
-        ctx.verify_mode = ssl.CERT_NONE
+        # P0.2: validar CA y hostname. Configurar DB_CA_BUNDLE con la ruta al PEM de RDS
+        # (https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem).
+        ctx = ssl.create_default_context(cafile=os.environ.get("DB_CA_BUNDLE") or None)
+        # check_hostname y CERT_REQUIRED son el default; no se sobreescriben.
     return pg.Connection(os.environ.get("DB_USER", "u_descubrimiento"), host=os.environ["DB_HOST"],
                          database=os.environ.get("DB_NAME", "lti"), password=os.environ["DB_PASSWORD"], ssl_context=ctx)
 

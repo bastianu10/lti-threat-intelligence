@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <!-- F-4: CSP estricta. Si cambias el script en linea, recalcula su sha256 (scripts/csp_hash.py). -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-t9YjoR2GglytvMoNc6/I134P06nYpIwibnm7ERWYzAs='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self' https://cognito-idp.us-east-2.amazonaws.com; img-src 'self' data:; manifest-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'; upgrade-insecure-requests">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-wOAfK79Xqv2TiIygMod3/MBR2fOqZpLotDe6xI4d+bI='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self' https://cognito-idp.us-east-2.amazonaws.com; img-src 'self' data:; manifest-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'; upgrade-insecure-requests">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Lyft Threat Intelligence</title>
 <meta name="color-scheme" content="light dark">
@@ -387,7 +387,9 @@ var IC={
 
 /* ---------- modo: conectado a la API o demostracion ---------- */
 var CFG=window.LTI_CONFIG||null;
-var DEMO=!CFG||/[?&]demo\b/.test(location.search);
+/* P0.6: el modo demo requiere ?demo explícito en la URL.
+   Si CFG es null y no hay ?demo, se muestra un error de configuración. */
+var DEMO=/[?&]demo\b/.test(location.search);
 
 /* datos de ejemplo con la misma forma que devuelve la API (solo para el modo demostracion) */
 function rng(seed){var s=seed;return function(){s=(s*1664525+1013904223)%4294967296;return s/4294967296}}
@@ -3459,6 +3461,8 @@ function entrar(){document.body.classList.remove("sinsesion");location.hash="#pa
 function route(){
   hideTip();ro.disconnect();
   var h=location.hash.replace("#","")||"panel";
+  if(!CFG&&!DEMO){document.body.classList.remove("sinsesion");
+    main.innerHTML='<div class="top"><div><h1>Sin configuración</h1><p>No se encontró <code>config.js</code> con <code>window.LTI_CONFIG</code>. Para usar datos de ejemplo añade <code>?demo</code> a la URL.</p></div></div>';return}
   $("#nav-panel").removeAttribute("aria-current");$("#nav-conf").removeAttribute("aria-current");$("#nav-rep").removeAttribute("aria-current");
   var nu=$("#nav-usr");if(nu)nu.removeAttribute("aria-current");
   if(!DEMO&&(!AUTH||!AUTH.id)){pintaUsuario();return viewLogin()}
