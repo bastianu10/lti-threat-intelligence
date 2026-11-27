@@ -17,6 +17,7 @@ Todos los comandos se corren desde la raíz del repo.
 | `frontend/` | El panel web (`index.html`). `config.js` lo genera `subir_panel.sh` |
 | `datos/` | Inventario de activos (`activos.csv`) y datos de prueba |
 | `paquetes/` | `lti-nucleo-vN.zip`: código de las Lambdas. Se usa siempre el de número más alto |
+| `docs/` | Procedimientos de operación. `operacion-usuarios.md`: altas, grupos y bajas de usuarios del panel |
 | `archivo/` | Material obsoleto, solo de consulta |
 
 ## Preparar tu computadora (Mac o Linux)

@@ -6,12 +6,7 @@ venv/
 .DS_Store
 auditoria-aws-*
 paquetes/*
-!paquetes/lti-nucleo-v11.zip
-!paquetes/lti-nucleo-v12.zip
-!paquetes/lti-nucleo-v13.zip
-!paquetes/lti-nucleo-v14.zip
-!paquetes/lti-nucleo-v15.zip
-!paquetes/lti-nucleo-v16.zip
+# Solo se versiona el paquete desplegado actualmente (el de numero mas alto).
 !paquetes/lti-nucleo-v17.zip
 respaldo/
 /plantilla-aws.yaml
