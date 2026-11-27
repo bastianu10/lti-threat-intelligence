@@ -5,6 +5,7 @@ __pycache__/
 venv/
 .DS_Store
 auditoria-aws-*
-paquetes/
+paquetes/*
+!paquetes/lti-nucleo-v11.zip
 respaldo/
 /plantilla-aws.yaml
