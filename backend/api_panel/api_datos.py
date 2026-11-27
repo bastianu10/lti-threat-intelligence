@@ -508,48 +508,15 @@ def _cog():
     return _COG
 
 
-def _parse_grupos(raw):
-    if isinstance(raw, (list, set)):
-        return set(raw)
-    s = str(raw).strip()
-    if not s:
-        return set()
-    if s.startswith("["):
-        try:
-            return set(json.loads(s))
-        except ValueError:
-            pass
-    return set(s.replace(",", " ").split())
-
-
 def _grupos_caller(event):
-    # Intento 1: claims del autorizador JWT de API Gateway (HTTP API v2.0)
-    ctx = (event.get("requestContext") or {})
-    auth = ctx.get("authorizer") or {}
-    claims = (auth.get("jwt") or {}).get("claims") or auth.get("claims") or {}
-    raw = claims.get("cognito:groups") or claims.get("groups") or ""
-    grupos = _parse_grupos(raw)
-    print("DEBUG grupos via claims: raw=%r -> %s" % (raw, grupos))
-    if grupos:
-        return grupos
-
-    # Intento 2: decodificar el payload del JWT desde el header Authorization
-    # (la firma ya fue verificada por API Gateway; no es necesario reverificarla)
-    try:
-        import base64 as _b64
-        token = ((event.get("headers") or {}).get("authorization") or "").strip()
-        if token.lower().startswith("bearer "):
-            token = token[7:].strip()
-        part = token.split(".")[1] if token else ""
-        pad = (4 - len(part) % 4) % 4
-        payload = json.loads(_b64.b64decode(part + "=" * pad, altchars=b"-_"))
-        raw2 = payload.get("cognito:groups") or payload.get("groups") or []
-        grupos2 = _parse_grupos(raw2)
-        print("DEBUG grupos via JWT header: raw=%r -> %s" % (raw2, grupos2))
-        return grupos2
-    except Exception as exc:
-        print("DEBUG grupos fallback error: %r" % str(exc))
-    return set()
+    """Grupos de Cognito del usuario autenticado. La HTTP API entrega los arreglos
+    como texto "[admin lectores]"; se extraen solo nombres válidos (misma regla que api_sistema)."""
+    auth = (event.get("requestContext") or {}).get("authorizer") or {}
+    claims = (auth.get("jwt") or {}).get("claims") or {}
+    raw = claims.get("cognito:groups", "")
+    if isinstance(raw, (list, tuple)):
+        raw = " ".join(str(x) for x in raw)
+    return set(re.findall(r"[A-Za-z0-9_-]+", str(raw)))
 
 
 def _requiere_admin(event):
