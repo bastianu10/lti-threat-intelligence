@@ -863,6 +863,22 @@ Resources:
               - Effect: Allow
                 Action: rds-db:connect
                 Resource: !Sub "arn:aws:rds-db:${AWS::Region}:${AWS::AccountId}:dbuser:${BaseDatosRDS.DbiResourceId}/u_dashboard"
+        # Gestion de usuarios del panel: list, create, update y disable en el pool del stack.
+        - PolicyName: gestionar-usuarios-cognito
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - cognito-idp:ListUsers
+                  - cognito-idp:ListUsersInGroup
+                  - cognito-idp:AdminCreateUser
+                  - cognito-idp:AdminAddUserToGroup
+                  - cognito-idp:AdminRemoveUserFromGroup
+                  - cognito-idp:AdminListGroupsForUser
+                  - cognito-idp:AdminDisableUser
+                  - cognito-idp:AdminEnableUser
+                Resource: !GetAtt UsuariosPanel.Arn
 
   FuncionApiDatos:
     Type: AWS::Lambda::Function
@@ -887,6 +903,7 @@ Resources:
           DB_HOST: !GetAtt BaseDatosRDS.Endpoint.Address
           DB_AUTH_MODE: iam   # C1: token IAM de 15 min; la contrasena compartida ya no llega a esta funcion
           BUCKET_CURADA: !Ref BucketCurada
+          USER_POOL_ID: !Ref UsuariosPanel
 
   RolApiSistema:
     Type: AWS::IAM::Role
@@ -1118,7 +1135,7 @@ Resources:
     Type: AWS::ApiGatewayV2::Route
     Properties:
       ApiId: !Ref ApiPanel
-      RouteKey: "GET /api/{proxy+}"
+      RouteKey: "ANY /api/{proxy+}"
       AuthorizationType: JWT
       AuthorizerId: !Ref AutorizadorPanel
       Target: !Sub "integrations/${IntegracionDatos}"

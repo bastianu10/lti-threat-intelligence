@@ -7,5 +7,6 @@ venv/
 auditoria-aws-*
 paquetes/*
 !paquetes/lti-nucleo-v11.zip
+!paquetes/lti-nucleo-v12.zip
 respaldo/
 /plantilla-aws.yaml

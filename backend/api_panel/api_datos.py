@@ -3,15 +3,21 @@ API de datos del panel (Lambda dentro de la red de la base). Solo lee, con el us
 Tambien guarda la foto diaria de numeros (tabla metricas_diarias) cuando Step Functions la invoca con {"accion": "snapshot"}.
 
 Rutas (API Gateway HTTP, con Cognito delante):
-  GET /api/resumen            numeros de las tarjetas, distribucion por prioridad y cambio contra hace 7 dias
-  GET /api/tendencia?dias=30  serie diaria por prioridad (desde metricas_diarias)
-  GET /api/hallazgos?limite=8 hallazgos abiertos ordenados por prioridad
-  GET /api/recursos           recursos de AWS sin registrar (?estado=sin_registrar|registrado)
-  GET /api/cobertura          cobertura del CMDB por tipo de recurso
-  GET /api/por-criticidad     hallazgos abiertos por criticidad del activo
-  GET /api/ambiguos           casos que el cruce determinista no pudo decidir (aun no se guardan)
-  GET /api/reporte-semanal    resumen semanal de los ultimos 7 dias (postura, plazos, KEV, agente)
-  GET /api/asesoria?hallazgo=<uuid>  asesoria del agente (no vinculante) para un hallazgo del tenant
+  GET  /api/resumen            numeros de las tarjetas, distribucion por prioridad y cambio contra hace 7 dias
+  GET  /api/tendencia?dias=30  serie diaria por prioridad (desde metricas_diarias)
+  GET  /api/hallazgos?limite=8 hallazgos abiertos ordenados por prioridad
+  GET  /api/recursos           recursos de AWS sin registrar (?estado=sin_registrar|registrado)
+  GET  /api/cobertura          cobertura del CMDB por tipo de recurso
+  GET  /api/por-criticidad     hallazgos abiertos por criticidad del activo
+  GET  /api/ambiguos           casos que el cruce determinista no pudo decidir (aun no se guardan)
+  GET  /api/reporte-semanal    resumen semanal de los ultimos 7 dias (postura, plazos, KEV, agente)
+  GET  /api/asesoria?hallazgo=<uuid>  asesoria del agente (no vinculante) para un hallazgo del tenant
+
+  Gestion de usuarios (solo grupo admin; opera sobre Cognito, sin conexion a la base):
+  GET    /api/usuarios                lista usuarios del pool con sus grupos
+  POST   /api/usuarios                crea usuario { correo, username, grupos }
+  PUT    /api/usuarios/{username}     actualiza grupos y estado { grupos, habilitado }
+  DELETE /api/usuarios/{username}     deshabilita usuario
 """
 import datetime
 import decimal
@@ -487,6 +493,172 @@ RUTAS = {"resumen": resumen, "tendencia": tendencia, "hallazgos": hallazgos, "re
          "asesoria": asesoria, "reporte-semanal": reporte_semanal}
 
 
+# ---------------------------------------------------------------- Gestión de usuarios (admin, Cognito)
+# Opera sobre el User Pool del stack. No usa la conexión a la base.
+# Requiere grupo "admin" en el JWT del llamador (claims de API Gateway HTTP).
+_COG = None
+GRUPOS_VALIDOS_USR = frozenset({"admin", "analista", "lector"})
+
+
+def _cog():
+    global _COG
+    if _COG is None:
+        import boto3
+        _COG = boto3.client("cognito-idp")
+    return _COG
+
+
+def _grupos_caller(event):
+    try:
+        raw = event["requestContext"]["authorizer"]["jwt"]["claims"].get("cognito:groups") or ""
+        return set(raw.replace(",", " ").split()) if isinstance(raw, str) else set(raw)
+    except (KeyError, TypeError):
+        return set()
+
+
+def _requiere_admin(event):
+    if "admin" not in _grupos_caller(event):
+        raise ErrorCliente(403, "Se requiere el grupo admin")
+
+
+def _cuerpo_req(event):
+    b = event.get("body") or ""
+    if event.get("isBase64Encoded"):
+        import base64 as _b64
+        b = _b64.b64decode(b).decode("utf-8")
+    try:
+        return json.loads(b) if b else {}
+    except ValueError:
+        return {}
+
+
+def _usr_attrs(u):
+    attrs = {a["Name"]: a["Value"] for a in u.get("Attributes", [])}
+    creado = u.get("UserCreateDate")
+    return {
+        "username": u["Username"],
+        "sub": attrs.get("sub", ""),
+        "correo": attrs.get("email", u["Username"]),
+        "habilitado": u.get("Enabled", True),
+        "estado": u.get("UserStatus", ""),
+        "creado": creado.isoformat() if hasattr(creado, "isoformat") else str(creado or ""),
+        "grupos": [],
+    }
+
+
+def _usr_listar(pool):
+    cog = _cog()
+    grupos_de = {}
+    for g in GRUPOS_VALIDOS_USR:
+        kw = {"UserPoolId": pool, "GroupName": g, "Limit": 60}
+        while True:
+            try:
+                r = cog.list_users_in_group(**kw)
+            except Exception:
+                break
+            for u in r.get("Users", []):
+                grupos_de.setdefault(u["Username"], []).append(g)
+            tok = r.get("NextToken")
+            if not tok:
+                break
+            kw["NextToken"] = tok
+
+    items, pag = [], {}
+    while True:
+        r = cog.list_users(UserPoolId=pool, Limit=60, **pag)
+        for u in r.get("Users", []):
+            d = _usr_attrs(u)
+            d["grupos"] = grupos_de.get(u["Username"], [])
+            items.append(d)
+        tok = r.get("PaginationToken")
+        if not tok:
+            break
+        pag = {"PaginationToken": tok}
+    items.sort(key=lambda x: x["correo"])
+    return {"items": items}
+
+
+def _usr_crear(pool, datos):
+    from botocore.exceptions import ClientError as BotoCE
+    correo = str(datos.get("correo") or "").strip().lower()
+    username = str(datos.get("username") or "").strip()
+    grupos = [g for g in (datos.get("grupos") or []) if g in GRUPOS_VALIDOS_USR]
+    if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", correo):
+        raise ErrorCliente(400, "Correo inválido")
+    if not re.match(r"^[a-zA-Z0-9._-]+$", username):
+        raise ErrorCliente(400, "Nombre de usuario inválido (solo letras, números, puntos, guiones)")
+    if not grupos:
+        raise ErrorCliente(400, "Elige al menos un privilegio válido")
+    cog = _cog()
+    try:
+        cog.admin_create_user(
+            UserPoolId=pool, Username=username,
+            UserAttributes=[{"Name": "email", "Value": correo}, {"Name": "email_verified", "Value": "true"}],
+            DesiredDeliveryMediums=["EMAIL"])
+    except BotoCE as e:
+        code = e.response["Error"]["Code"]
+        if code == "UsernameExistsException":
+            raise ErrorCliente(409, "Ya existe un usuario con ese nombre")
+        raise
+    for g in grupos:
+        cog.admin_add_user_to_group(UserPoolId=pool, Username=username, GroupName=g)
+    return {"ok": True, "username": username, "correo": correo, "grupos": grupos}
+
+
+def _usr_actualizar(pool, username, datos):
+    from botocore.exceptions import ClientError as BotoCE
+    grupos_nuevos = [g for g in (datos.get("grupos") or []) if g in GRUPOS_VALIDOS_USR]
+    habilitado = datos.get("habilitado")
+    cog = _cog()
+    try:
+        grupos_actuales = [g["GroupName"] for g in
+                           cog.admin_list_groups_for_user(UserPoolId=pool, Username=username).get("Groups", [])
+                           if g["GroupName"] in GRUPOS_VALIDOS_USR]
+    except BotoCE as e:
+        if e.response["Error"]["Code"] == "UserNotFoundException":
+            raise ErrorCliente(404, "Usuario no encontrado")
+        raise
+    for g in grupos_actuales:
+        cog.admin_remove_user_from_group(UserPoolId=pool, Username=username, GroupName=g)
+    for g in grupos_nuevos:
+        cog.admin_add_user_to_group(UserPoolId=pool, Username=username, GroupName=g)
+    if habilitado is not None:
+        (cog.admin_enable_user if habilitado else cog.admin_disable_user)(UserPoolId=pool, Username=username)
+    return {"ok": True, "username": username, "grupos": grupos_nuevos}
+
+
+def _usr_deshabilitar(pool, username):
+    from botocore.exceptions import ClientError as BotoCE
+    try:
+        _cog().admin_disable_user(UserPoolId=pool, Username=username)
+    except BotoCE as e:
+        if e.response["Error"]["Code"] == "UserNotFoundException":
+            raise ErrorCliente(404, "Usuario no encontrado")
+        raise
+    return {"ok": True, "username": username}
+
+
+def _usuarios_handler(event):
+    _requiere_admin(event)
+    pool = os.environ.get("USER_POOL_ID")
+    if not pool:
+        raise ErrorCliente(500, "USER_POOL_ID no configurado")
+    metodo = ((event.get("requestContext") or {}).get("http") or {}).get("method", "GET").upper()
+    ruta = (event.get("rawPath") or "").rstrip("/")
+    partes = ruta.split("/api/usuarios/", 1)
+    username = partes[1] if len(partes) > 1 and partes[1] else None
+
+    if metodo == "GET" and not username:
+        return 200, _usr_listar(pool)
+    if metodo == "POST" and not username:
+        return 201, _usr_crear(pool, _cuerpo_req(event))
+    if metodo in ("PUT", "PATCH") and username:
+        return 200, _usr_actualizar(pool, username, _cuerpo_req(event))
+    if metodo == "DELETE" and username:
+        return 200, _usr_deshabilitar(pool, username)
+    raise ErrorCliente(405, "Método o ruta no soportados")
+
+
 NIVEL = {"critica": 1, "alta": 2, "media": 3, "baja": 4}
 ICONO = {1: "🔴", 2: "🟠", 3: "🟡", 4: "🟢"}
 ETIQ = {1: "Crítica", 2: "Alta", 3: "Media", 4: "Baja"}
@@ -631,6 +803,13 @@ def marcar(con, ids):
 def handler(event, context):
     con = None
     try:
+        ruta = (event.get("rawPath") or "").split("/api/", 1)[-1].strip("/")
+
+        # Gestión de usuarios: solo Cognito, sin conexión a la base
+        if ruta == "usuarios" or ruta.startswith("usuarios/"):
+            codigo, cuerpo = _usuarios_handler(event)
+            return _resp(codigo, cuerpo)
+
         con = _con()
         if event.get("accion") == "snapshot":                      # lo llama Step Functions al final del flujo
             m = snapshot(con)
@@ -642,7 +821,6 @@ def handler(event, context):
             return r
         if event.get("accion") == "marcar":
             return marcar(con, event.get("ids"))
-        ruta = (event.get("rawPath") or "").split("/api/", 1)[-1].strip("/")
         f = RUTAS.get(ruta)
         if not f:
             return _resp(404, {"error": "ruta desconocida"})
