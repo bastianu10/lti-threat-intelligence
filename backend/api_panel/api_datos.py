@@ -509,21 +509,29 @@ def _cog():
 
 
 def _grupos_caller(event):
-    try:
-        raw = event["requestContext"]["authorizer"]["jwt"]["claims"].get("cognito:groups") or ""
-        if isinstance(raw, list):
-            return set(raw)
-        s = raw.strip()
-        # API Gateway HTTP v2.0 serializa el array de Cognito como JSON: '["admin","analista"]'
-        if s.startswith("["):
-            return set(json.loads(s))
-        return set(s.replace(",", " ").split()) if s else set()
-    except (KeyError, TypeError, ValueError):
+    ctx = (event.get("requestContext") or {})
+    auth = ctx.get("authorizer") or {}
+    # HTTP API v2.0 JWT authorizer: auth["jwt"]["claims"]
+    # Algunos setups pasan claims directo en auth["claims"]
+    claims = (auth.get("jwt") or {}).get("claims") or auth.get("claims") or {}
+    raw = claims.get("cognito:groups") or claims.get("groups") or ""
+    print("DEBUG _grupos_caller raw=%r keys=%s" % (raw, list(claims.keys())[:12]))
+    if isinstance(raw, list):
+        return set(raw)
+    s = str(raw).strip()
+    if not s:
         return set()
+    if s.startswith("["):
+        try:
+            return set(json.loads(s))
+        except ValueError:
+            pass
+    return set(s.replace(",", " ").split())
 
 
 def _requiere_admin(event):
-    if "admin" not in _grupos_caller(event):
+    grupos = _grupos_caller(event)
+    if "admin" not in grupos:
         raise ErrorCliente(403, "Se requiere el grupo admin")
 
 
