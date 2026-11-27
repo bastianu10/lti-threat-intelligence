@@ -15,7 +15,7 @@ Todos los comandos se corren desde la raíz del repo.
 | `lambdas/` | Código de las Lambdas de carga y cruce (`lambda_handlers.py`, `rds_*.py`, `lti_db.py`), scripts `ver_*.py` para correrlos a mano contra RDS y `requisitos.txt` |
 | `cmdb/` | Neo4j + Cartography: `cargar_cmdb.py`, `descubrimiento.py` y sus scripts de sincronización |
 | `frontend/` | El panel web (`index.html`). `config.js` lo genera `subir_panel.sh` |
-| `datos/` | Inventario de activos (`activos.csv`, `activos_v3.csv`) y datos de prueba |
+| `datos/` | Inventario de activos (`activos.csv`) y datos de prueba |
 | `paquetes/` | `lti-nucleo-vN.zip`: código de las Lambdas. Se usa siempre el de número más alto |
 | `archivo/` | Material obsoleto, solo de consulta |
 
@@ -37,5 +37,5 @@ bash scripts/subir_panel.sh   # si cambió frontend/index.html
 
 ## Reglas del equipo
 - Nunca subas contraseñas, claves ni la URL del webhook de Slack. Van en `.env.local` y en Secrets Manager.
-- Si cambias código de `backend/` o `lambdas/`, hay que reconstruir el zip con número nuevo (`paquetes/lti-nucleo-v6.zip`, etc.) para que las Lambdas lo tomen. El zip incluye las librerías (pg8000, six).
+- Si cambias código de `backend/` o `lambdas/`, hay que reconstruir el zip con número nuevo (`paquetes/lti-nucleo-v7.zip`, etc.) para que las Lambdas lo tomen. El zip incluye las librerías (pg8000, six).
 - La Lambda de Slack (`Iti-SlackConection1`) vive fuera del stack; la plantilla solo recibe su ARN.

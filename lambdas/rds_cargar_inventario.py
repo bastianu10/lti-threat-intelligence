@@ -1,5 +1,5 @@
 """
-Carga activos_v3.csv en el esquema v3: usuarios, equipos, activos, despliegues, componentes y dependencias.
+Carga activos.csv en el esquema v3: usuarios, equipos, activos, despliegues, componentes y dependencias.
 Se conecta como u_inventario (seguridad por fila activa: solo toca la organizacion indicada).
 
 Uso:
@@ -24,7 +24,7 @@ def intervalo(minutos):
 def main():
     ap = argparse.ArgumentParser()
     agregar_argumentos(ap, "u_inventario")
-    ap.add_argument("--csv", default="datos/activos_v3.csv")
+    ap.add_argument("--csv", default="datos/activos.csv")
     ap.add_argument("--tenant", default=TENANT_LYFT)
     args = ap.parse_args()
     t = args.tenant

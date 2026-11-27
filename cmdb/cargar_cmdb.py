@@ -25,9 +25,22 @@ CAMPOS = [
 ]
 
 
+def _a_cmdb(f):
+    """activos.csv (esquema v3) -> propiedades que guarda la CMDB."""
+    prod = " ".join(x for x in (f.get("producto"), f.get("version")) if x and x != "n/d")
+    return {
+        "id": f["codigo"], "nombre": f["nombre"], "tipo": f["tipo"], "arquitectura": f["arquitectura"],
+        "capa": f["capa"], "ambiente": f["ambiente"], "dueno": f["equipo"], "producto_version": prod,
+        "criticidad": f["criticidad"], "clasificacion_informacion": f["clasificacion_informacion"],
+        "expuesto_internet": "Si" if f["expuesto_internet"] == "true" else "No",
+        "disponibilidad_objetivo": f["disponibilidad_objetivo"], "rto": f["rto_minutos"],
+        "rpo": f["rpo_minutos"], "depende_de": f["depende_de"], "descripcion": f["descripcion"],
+    }
+
+
 def leer_csv(ruta):
     with open(ruta, newline="", encoding="utf-8") as f:
-        return [fila for fila in csv.DictReader(f) if fila.get("id")]
+        return [_a_cmdb(fila) for fila in csv.DictReader(f) if fila.get("codigo")]
 
 
 def cargar(tx, filas):
