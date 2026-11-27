@@ -9,16 +9,6 @@ Parameters:
     Type: String
     Default: lti
     AllowedPattern: "[a-z0-9-]{1,12}"
-  ClaveRDS:
-    Type: String
-    NoEcho: true
-    Description: Clave maestra de la base RDS. Siempre se pasa en el deploy (desplegar.sh la lee de .env.local); sin valor por defecto.
-    MinLength: 8
-  ClaveUsuarios:
-    Type: String
-    NoEcho: true
-    Description: Clave de los usuarios de la base (u_ingesta, u_cruce...). La misma que se uso en rds_crear_esquema.py --clave-usuarios.
-    MinLength: 8
   VersionNucleo:
     Type: String
     Default: v6
@@ -26,7 +16,7 @@ Parameters:
     Description: Version del paquete lti-nucleo-<version>.zip en s3://<bucket curada>/artefactos/. Cambiala cada vez que subas un paquete nuevo.
   ArnSlack:
     Type: String
-    Default: arn:aws:lambda:us-east-2:208805233219:function:lti-notificador-slack
+    # O-10 (24-nov): sin valor por defecto (el repositorio es publico); desplegar.sh reutiliza el valor del stack.
     AllowedPattern: "arn:aws:lambda:[a-z0-9-]+:[0-9]{12}:function:[A-Za-z0-9_-]+"
     Description: Emisor de Slack v2 (lti-notificador-slack, fuera del stack). Recibe {"mensajes":[{ids,title,body}]}.
   EmailAdminPanel:
@@ -44,11 +34,17 @@ Parameters:
       AMI de la CMDB. desplegar.sh pasa la de la instancia que ya corre. Antes era el parametro SSM
       "latest" de Amazon Linux 2023, que cambia solo cuando AWS publica una imagen nueva y provocaba el
       REEMPLAZO de la instancia (y la perdida de Neo4j) en cualquier despliegue.
-  IPPermitida:
+  VersionAgente:
     Type: String
-    Description: Tu IP publica actual, en formato CIDR (ej. 187.190.12.34/32). Solo esa IP podra conectarse a RDS.
-    AllowedPattern: "(\\d{1,3}\\.){3}\\d{1,3}/32"
-
+    Default: a2-1   # O-3: reutilizacion de asesorias
+    AllowedPattern: "[a-z0-9.-]{1,20}"
+    Description: Version del paquete lti-agente-<version>.zip en s3://<bucket curada>/artefactos/ (agente asesor).
+  ModoDemoAgente:
+    Type: String
+    # 24-nov: produccion. Con la corrida f332e8ef, true y false dan los mismos 10 casos asesorables.
+    Default: "false"
+    AllowedValues: ["true", "false"]
+    Description: true envia los casos al agente (demostracion); false aplica la politica de enrutamiento (P1/P2, KEV, ambiguos).
 Resources:
   # --- Red privada minima para RDS (sin NAT Gateway: nada en esta VPC necesita salir a internet) ---
   VpcRDS:
@@ -149,15 +145,7 @@ Resources:
       Description: "Lambdas de la VPC (SgLambdaRDS)"
       SourceSecurityGroupId: !Ref SgLambdaRDS
 
-  ReglaRDSDesdeMiIP:
-    Type: AWS::EC2::SecurityGroupIngress
-    Properties:
-      GroupId: !Ref SgRDS
-      IpProtocol: tcp
-      FromPort: 5432
-      ToPort: 5432
-      Description: "Administracion: IP fija del equipo (IP_PERMITIDA en .env.local)"
-      CidrIp: !Ref IPPermitida
+  # F-3 (22-nov): se retira ReglaRDSDesdeMiIP. La administracion entra por SSM (tunel via InstanciaCMDB).
 
   ReglaRDSDesdeCMDB:
     Type: AWS::EC2::SecurityGroupIngress
@@ -184,17 +172,18 @@ Resources:
       AllocatedStorage: "20"
       StorageType: gp2
       MasterUsername: lti_app
-      MasterUserPassword: !Ref ClaveRDS
+      # 2B / SEC-03 (23-nov): RDS genera y rota la clave maestra en Secrets Manager (rds!db-...).
+      ManageMasterUserPassword: true
       DBName: lti
       DBSubnetGroupName: !Ref GrupoSubredesRDS
       VPCSecurityGroups:
         - !Ref SgRDS
-      PubliclyAccessible: true
+      PubliclyAccessible: false   # F-1 (22-nov): sin IP publica; solo clientes de la VPC
       MultiAZ: false
       # Cambios aplicados SIN reemplazo ni reinicio (verificar en el change set que Replacement = False):
       EnableIAMDatabaseAuthentication: true   # ya activo desde el 19-nov (R3): formaliza la deriva
-      # Se mantiene en 1: el change set marco el cambio a 7 como "RequiresRecreation: Conditionally".
-      # Pasar a 7 dias queda para despues de la demo (en una ventana con instantanea manual previa).
+      # Se mantiene en 1: el plan gratuito de la cuenta no admite mas (FreeTierRestrictionError, 23-nov).
+      # Compensacion: FuncionRespaldoDiario (instantanea diaria con rotacion de 7 dias).
       BackupRetentionPeriod: 1
       DeletionProtection: true
       # NO agregar StorageEncrypted aqui: cambiarlo REEMPLAZA la instancia (base nueva y vacia).
@@ -517,56 +506,6 @@ Resources:
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
 
-  FuncionCarga:
-    Type: AWS::Lambda::Function
-    Properties:
-      FunctionName: !Sub "${NombreProyecto}-carga-vulnerabilidades"
-      Runtime: python3.12
-      Handler: lambda_handlers.carga_vulnerabilidades
-      Role: !GetAtt RolCarga.Arn
-      Timeout: 900
-      MemorySize: 1024
-      Code:
-        S3Bucket: !Ref BucketCurada
-        S3Key: !Sub "artefactos/lti-nucleo-${VersionNucleo}.zip"
-      VpcConfig:
-        SubnetIds:
-          - !Ref SubnetA
-          - !Ref SubnetB
-        SecurityGroupIds:
-          - !Ref SgLambdaRDS
-      Environment:
-        Variables:
-          DB_HOST: !GetAtt BaseDatosRDS.Endpoint.Address
-          DB_PASSWORD: !Ref ClaveUsuarios
-          BUCKET_CURADA: !Ref BucketCurada
-
-  FuncionCruceRDS:
-    Type: AWS::Lambda::Function
-    Properties:
-      Tags:
-        - Key: activo
-          Value: lti-cruce
-      FunctionName: !Sub "${NombreProyecto}-cruce-rds"
-      Runtime: python3.12
-      Handler: lambda_handlers.cruce
-      Role: !GetAtt RolCruceRDS.Arn
-      Timeout: 300
-      MemorySize: 512
-      Code:
-        S3Bucket: !Ref BucketCurada
-        S3Key: !Sub "artefactos/lti-nucleo-${VersionNucleo}.zip"
-      VpcConfig:
-        SubnetIds:
-          - !Ref SubnetA
-          - !Ref SubnetB
-        SecurityGroupIds:
-          - !Ref SgLambdaRDS
-      Environment:
-        Variables:
-          DB_HOST: !GetAtt BaseDatosRDS.Endpoint.Address
-          DB_PASSWORD: !Ref ClaveUsuarios
-
   RolFlujo:
     Type: AWS::IAM::Role
     Properties:
@@ -596,6 +535,7 @@ Resources:
                   - !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${NombreProyecto}-motor-contextual-shadow"
                   - !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${NombreProyecto}-notificador-rds"
                   - !Ref ArnSlack
+                  - !GetAtt FuncionAgenteAsesor.Arn
 
   FlujoDiario:
     Type: AWS::StepFunctions::StateMachine
@@ -613,10 +553,14 @@ Resources:
             "Cruce": {"Type":"Task","Resource":"arn:aws:states:::lambda:invoke","Parameters":{"FunctionName":"${ArnCruceV2}","Payload":{"corrida_id.$":"$.carga_result.corrida_id"}},"TimeoutSeconds":300,"Retry":[{"ErrorEquals":["States.ALL"],"IntervalSeconds":30,"MaxAttempts":1}],"ResultPath":"$.cruce_result","Next":"VerificarCorridaCruce","ResultSelector":{"corrida_id.$":"$.Payload.corrida_id"}},
             "Metricas": {"Type":"Task","Resource":"arn:aws:states:::lambda:invoke","Parameters":{"FunctionName":"${ArnApiDatos}","Payload":{"accion":"snapshot"}},"TimeoutSeconds":60,"Retry":[{"ErrorEquals":["States.ALL"],"IntervalSeconds":20,"MaxAttempts":1}],"ResultPath":null,"Catch":[{"ErrorEquals":["States.ALL"],"ResultPath":null,"Next":"TipoCorrida"}],"Next":"TipoCorrida"},
             "VerificarCorridaCruce": {"Type":"Choice","Choices":[{"Variable":"$.cruce_result.corrida_id","StringEqualsPath":"$.carga_result.corrida_id","Next":"MotorContextual"}],"Default":"ErrorIntegracion"},
-            "MotorContextual": {"Type":"Task","Resource":"arn:aws:states:::lambda:invoke","Parameters":{"FunctionName":"${ArnMotor}","Payload":{"corrida_id.$":"$.carga_result.corrida_id"}},"ResultSelector":{"status.$":"$.Payload.status","corrida_id.$":"$.Payload.corrida_id","evaluados.$":"$.Payload.evaluados","errores.$":"$.Payload.errores","listo_para_agente.$":"$.Payload.listo_para_agente","archivo_sombra.$":"$.Payload.archivo_sombra"},"ResultPath":"$.motor_result","Next":"VerificarMotor","Catch":[{"ErrorEquals":["States.ALL"],"ResultPath":"$.motor_error","Next":"Metricas"}]},
-            "VerificarMotor": {"Type":"Choice","Choices":[{"And":[{"Variable":"$.motor_result.status","StringEquals":"ok"},{"Variable":"$.motor_result.errores","NumericEquals":0},{"Variable":"$.motor_result.corrida_id","StringEqualsPath":"$.carga_result.corrida_id"}],"Next":"Metricas"}],"Default":"MotorShadowNoListo"},
+            "MotorContextual": {"Type":"Task","Resource":"arn:aws:states:::lambda:invoke","Parameters":{"FunctionName":"${ArnMotor}","Payload":{"corrida_id.$":"$.carga_result.corrida_id"}},"ResultSelector":{"status.$":"$.Payload.status","corrida_id.$":"$.Payload.corrida_id","evaluados.$":"$.Payload.evaluados","errores.$":"$.Payload.errores","listo_para_agente.$":"$.Payload.listo_para_agente","archivo_sombra.$":"$.Payload.archivo_sombra"},"ResultPath":"$.motor_result","Next":"VerificarMotor","Catch":[{"ErrorEquals":["States.ALL"],"ResultPath":"$.motor_error","Next":"ErrorIntegracion"}]},
+            "VerificarMotor": {"Type":"Choice","Choices":[{"And":[{"Variable":"$.motor_result.status","StringEquals":"ok"},{"Variable":"$.motor_result.errores","NumericEquals":0},{"Variable":"$.motor_result.corrida_id","StringEqualsPath":"$.carga_result.corrida_id"}],"Next":"HayCasosAgente"}],"Default":"MotorShadowNoListo"},
+            "HayCasosAgente": {"Type":"Choice","Comment":"Agente asesor (priorizacion asistida): solo con archivo del motor integro y listo.","Choices":[{"And":[{"Variable":"$.motor_result.listo_para_agente","BooleanEquals":true},{"Variable":"$.motor_result.archivo_sombra","IsNull":false}],"Next":"AgenteListar"}],"Default":"Metricas"},
+            "AgenteListar": {"Type":"Task","Resource":"arn:aws:states:::lambda:invoke","Parameters":{"FunctionName":"${ArnAgente}","Payload":{"accion":"listar","corrida_id.$":"$.carga_result.corrida_id","archivo_sombra.$":"$.motor_result.archivo_sombra","modo_demo":${ModoDemoAgente}}},"TimeoutSeconds":60,"ResultSelector":{"casos.$":"$.Payload.casos","total.$":"$.Payload.total","omitidos.$":"$.Payload.omitidos"},"ResultPath":"$.agente_lista","Next":"AgenteAsesorar","Catch":[{"ErrorEquals":["States.ALL"],"ResultPath":"$.agente_error","Next":"AgenteNoDisponible"}]},
+            "AgenteAsesorar": {"Type":"Map","Comment":"Un hallazgo por invocacion (sin contaminacion cruzada). Un fallo por caso conserva la evaluacion determinista.","ItemsPath":"$.agente_lista.casos","MaxConcurrency":5,"ItemSelector":{"accion":"asesorar","hallazgo_id.$":"$$.Map.Item.Value","corrida_id.$":"$.carga_result.corrida_id","archivo_sombra.$":"$.motor_result.archivo_sombra","modo_demo":${ModoDemoAgente}},"ItemProcessor":{"ProcessorConfig":{"Mode":"INLINE"},"StartAt":"AsesorarCaso","States":{"AsesorarCaso":{"Type":"Task","Resource":"arn:aws:states:::lambda:invoke","Parameters":{"FunctionName":"${ArnAgente}","Payload.$":"$"},"TimeoutSeconds":150,"Retry":[{"ErrorEquals":["Lambda.TooManyRequestsException","Lambda.ServiceException","Lambda.SdkClientException"],"IntervalSeconds":10,"MaxAttempts":2,"BackoffRate":2}],"OutputPath":"$.Payload","Catch":[{"ErrorEquals":["States.ALL"],"ResultPath":"$.error","Next":"CasoNoAsesorado"}],"End":true},"CasoNoAsesorado":{"Type":"Pass","Parameters":{"hallazgo_id.$":"$.hallazgo_id","estado":"sin_asesoria","motivo":"error_invocacion"},"End":true}}},"ResultPath":"$.agente_resultados","Next":"Metricas","Catch":[{"ErrorEquals":["States.ALL"],"ResultPath":"$.agente_error","Next":"AgenteNoDisponible"}]},
+            "AgenteNoDisponible": {"Type":"Pass","Result":{"estado":"parcial","motivo":"Agente no disponible: se conserva la evaluacion determinista"},"ResultPath":"$.agente_advertencia","Next":"Metricas"},
             "ErrorIntegracion": {"Type":"Fail","Error":"CorridaOEvaluacionInconsistente","Cause":"No coincide la corrida o fallo la evaluacion determinista"},
-            "MotorShadowNoListo": {"Type":"Pass","Result":{"estado":"requiere_revision","motivo":"Resultado del motor no conforme"},"ResultPath":"$.motor_advertencia","Next":"Metricas"},
+            "MotorShadowNoListo": {"Type":"Pass","Result":{"estado":"requiere_revision","motivo":"Resultado del motor no conforme"},"ResultPath":"$.motor_advertencia","Next":"ErrorIntegracion"},
             "RutaResumen": {"Type":"Choice","Choices":[{"And":[{"Variable":"$.resumen","IsPresent":true},{"Variable":"$.resumen","BooleanEquals":true}],"Next":"Metricas"}],"Default":"Normalizacion"},
             "TipoCorrida": {"Type":"Choice","Comment":"Solo la regla lti-resumen-diario (resumen=true) envia el resumen de prioridad baja.","Choices":[{"And":[{"Variable":"$.resumen","IsPresent":true},{"Variable":"$.resumen","BooleanEquals":true}],"Next":"NotifPrepararResumen"}],"Default":"NotifPrepararAlertas"},
             "NotifPrepararAlertas": {"Type":"Task","Resource":"arn:aws:states:::lambda:invoke","Parameters":{"FunctionName":"${ArnNotifRds}","Payload":{"accion":"preparar","resumen":false}},"TimeoutSeconds":60,"Next":"HayMensajes","Comment":"VPC: reclama y arma mensajes desde RDS. Idempotente (claves unicas): admite reintento.","ResultSelector":{"lote.$":"$.Payload"},"ResultPath":"$.notif","Retry":[{"ErrorEquals":["Lambda.ServiceException","Lambda.AWSLambdaException","Lambda.SdkClientException","Lambda.TooManyRequestsException"],"IntervalSeconds":5,"MaxAttempts":2,"BackoffRate":2}]},
@@ -641,6 +585,7 @@ Resources:
           ArnMotor: !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${NombreProyecto}-motor-contextual-shadow"
           ArnNotifRds: !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${NombreProyecto}-notificador-rds"
           ArnNotifSlack: !Ref ArnSlack
+          ArnAgente: !GetAtt FuncionAgenteAsesor.Arn
 
   RolEventosFlujo:
     Type: AWS::IAM::Role
@@ -666,7 +611,8 @@ Resources:
     Properties:
       Name: !Sub "${NombreProyecto}-fuente-nvd"
       Description: "Fuente nvd: la frecuencia se cambia desde el panel (Configuracion)"
-      ScheduleExpression: cron(0 12 * * ? *)
+      # A-1 (24-nov): cada 3 h (antes 1 vez al dia); incluye las 12:00 UTC. Con O-3 el agente no repite casos sin cambios.
+      ScheduleExpression: cron(0 0/3 * * ? *)
       State: ENABLED
       Targets:
         - Arn: !Ref FlujoDiario
@@ -705,7 +651,8 @@ Resources:
     Properties:
       Name: !Sub "${NombreProyecto}-resumen-diario"
       Description: "Resumen diario a Slack: la hora se cambia desde el panel (Configuracion)"
-      ScheduleExpression: cron(0 9 * * ? *)
+      # 14:00 UTC = 08:00 hora de la Ciudad de Mexico (antes 09:00 UTC = 03:00). Esa corrida no invoca al agente.
+      ScheduleExpression: cron(0 14 * * ? *)
       State: ENABLED
       Targets:
         - Arn: !Ref FlujoDiario
@@ -743,6 +690,14 @@ Resources:
               - Effect: Allow
                 Action: s3:GetObject
                 Resource: !Sub "${BucketCurada.Arn}/artefactos/cmdb/*"
+        # C3 / H1 (23-nov): autenticacion IAM a RDS SOLO como u_descubrimiento (sin contrasena en /opt/cmdb/env).
+        - PolicyName: conectar-rds-iam-u-descubrimiento
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: rds-db:connect
+                Resource: !Sub "arn:aws:rds-db:${AWS::Region}:${AWS::AccountId}:dbuser:${BaseDatosRDS.DbiResourceId}/u_descubrimiento"
 
   PerfilCMDB:
     Type: AWS::IAM::InstanceProfile
@@ -755,15 +710,8 @@ Resources:
     Properties:
       GroupDescription: Neo4j (navegador 7474 y bolt 7687) solo desde la IP del equipo
       VpcId: !Ref VpcRDS
-      SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: 7474
-          ToPort: 7474
-          CidrIp: !Ref IPPermitida
-        - IpProtocol: tcp
-          FromPort: 7687
-          ToPort: 7687
-          CidrIp: !Ref IPPermitida
+      # F-6 (22-nov): sin entrada desde internet; Neo4j por tunel SSM (puertos 7474/7687)
+      SecurityGroupIngress: []
 
   InstanciaCMDB:
     Type: AWS::EC2::Instance
@@ -892,6 +840,29 @@ Resources:
             Action: sts:AssumeRole
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
+      Policies:
+        # Solo lectura de las asesorias del agente del tenant Lyft (ruta fija; sin escritura ni otros prefijos).
+        - PolicyName: leer-asesorias-agente
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: s3:GetObject
+                Resource: !Sub "${BucketCurada.Arn}/agente/11111111-1111-1111-1111-111111111111/*"
+              - Effect: Allow
+                Action: s3:ListBucket
+                Resource: !GetAtt BucketCurada.Arn
+                Condition:
+                  StringLike:
+                    s3:prefix: "agente/11111111-1111-1111-1111-111111111111/*"
+        # C1 / H1 (23-nov): autenticacion IAM a RDS SOLO como u_dashboard (sin DB_PASSWORD en la funcion).
+        - PolicyName: conectar-rds-iam-u-dashboard
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: rds-db:connect
+                Resource: !Sub "arn:aws:rds-db:${AWS::Region}:${AWS::AccountId}:dbuser:${BaseDatosRDS.DbiResourceId}/u_dashboard"
 
   FuncionApiDatos:
     Type: AWS::Lambda::Function
@@ -914,7 +885,8 @@ Resources:
       Environment:
         Variables:
           DB_HOST: !GetAtt BaseDatosRDS.Endpoint.Address
-          DB_PASSWORD: !Ref ClaveUsuarios
+          DB_AUTH_MODE: iam   # C1: token IAM de 15 min; la contrasena compartida ya no llega a esta funcion
+          BUCKET_CURADA: !Ref BucketCurada
 
   RolApiSistema:
     Type: AWS::IAM::Role
@@ -1023,7 +995,10 @@ Resources:
         - email
       AdminCreateUserConfig:
         AllowAdminCreateUserOnly: true
-      MfaConfiguration: "OFF"
+      # C-1: verificacion en dos pasos obligatoria con aplicacion autenticadora (TOTP). Sin SMS ni correo.
+      MfaConfiguration: "ON"
+      EnabledMfas:
+        - SOFTWARE_TOKEN_MFA
       Policies:
         PasswordPolicy:
           MinimumLength: 10
@@ -1105,6 +1080,10 @@ Resources:
       DefaultRouteSettings:
         ThrottlingBurstLimit: 50
         ThrottlingRateLimit: 25
+      # F-7 (lote 3): registro de acceso por peticion (sin cuerpos ni cabeceras de autorizacion), 30 dias.
+      AccessLogSettings:
+        DestinationArn: !GetAtt RegistroAccesoApi.Arn
+        Format: '{"id":"$context.requestId","ip":"$context.identity.sourceIp","t":"$context.requestTime","metodo":"$context.httpMethod","ruta":"$context.routeKey","estado":"$context.status","bytes":"$context.responseLength","ms":"$context.responseLatency","error_autorizador":"$context.authorizer.error","error_integracion":"$context.integrationErrorMessage"}'
 
   AutorizadorPanel:
     Type: AWS::ApiGatewayV2::Authorizer
@@ -1245,6 +1224,121 @@ Resources:
               StringEquals:
                 AWS:SourceArn: !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${DistribucionPanel}"
 
+  # ------------------------------------------------------------------ Agente asesor (priorizacion asistida)
+  # La IA ASESORA, el motor CALCULA y el dueno APRUEBA. Fuera de la VPC y sin credenciales de base.
+  GuardrailAgente:
+    Type: AWS::Bedrock::Guardrail
+    Properties:
+      Name: !Sub "${NombreProyecto}-agente-asesor"
+      Description: Ataques de prompt en textos de terceros (feeds y precedentes) y PII/credenciales en la salida.
+      BlockedInputMessaging: Entrada bloqueada por el guardrail del agente asesor.
+      BlockedOutputsMessaging: Salida bloqueada por el guardrail del agente asesor.
+      ContentPolicyConfig:
+        FiltersConfig:
+          - Type: PROMPT_ATTACK
+            InputStrength: HIGH
+            OutputStrength: NONE
+      SensitiveInformationPolicyConfig:
+        PiiEntitiesConfig:
+          - {Type: EMAIL, Action: BLOCK}
+          - {Type: IP_ADDRESS, Action: BLOCK}
+          - {Type: AWS_ACCESS_KEY, Action: BLOCK}
+          - {Type: AWS_SECRET_KEY, Action: BLOCK}
+          - {Type: PASSWORD, Action: BLOCK}
+          - {Type: CREDIT_DEBIT_CARD_NUMBER, Action: BLOCK}
+      Tags:
+        - Key: activo
+          Value: guardrail-agente-lti
+
+  GuardrailAgenteVersion:
+    Type: AWS::Bedrock::GuardrailVersion
+    Properties:
+      GuardrailIdentifier: !GetAtt GuardrailAgente.GuardrailId
+      Description: v1 - prompt attack HIGH (entrada) + PII/credenciales (salida)
+
+  LogAgenteAsesor:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${NombreProyecto}-agente-asesor"
+      RetentionInDays: 30
+
+  RolAgenteAsesor:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: agente-asesor-minimo
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: Logs
+                Effect: Allow
+                Action: [logs:CreateLogStream, logs:PutLogEvents]
+                Resource: !Sub "${LogAgenteAsesor.Arn}"
+              - Sid: LeerSalidaDelMotor
+                Effect: Allow
+                Action: s3:GetObject
+                Resource: !Sub "arn:aws:s3:::${NombreProyecto}-motor-shadow-${AWS::AccountId}-${AWS::Region}/risk-engine-shadow/*"
+                Condition:
+                  StringEquals:
+                    s3:ResourceAccount: !Ref AWS::AccountId
+              - Sid: LeerModeloDeNegocio
+                Effect: Allow
+                Action: s3:GetObject
+                Resource: !Sub "${BucketCurada.Arn}/contexto/*"
+              - Sid: EscribirAsesoria
+                Effect: Allow
+                Action: s3:PutObject
+                Resource: !Sub "${BucketCurada.Arn}/agente/*"
+              # O-3 (24-nov): leer sus propias asesorias e indice de reuso para no volver a llamar a Bedrock.
+              - Sid: LeerAsesoriasPropias
+                Effect: Allow
+                Action: s3:GetObject
+                Resource: !Sub "${BucketCurada.Arn}/agente/*"
+              - Sid: InvocarModelo
+                Effect: Allow
+                Action: bedrock:InvokeModel
+                Resource:
+                  - !Sub "arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/us.anthropic.claude-sonnet-4-6"
+                  - !Sub "arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/us.anthropic.claude-haiku-4-5-20251001-v1:0"
+                  - "arn:aws:bedrock:us-*::foundation-model/anthropic.claude-sonnet-4-6*"
+                  - "arn:aws:bedrock:us-*::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0"
+              - Sid: AplicarGuardrail
+                Effect: Allow
+                Action: bedrock:ApplyGuardrail
+                Resource: !GetAtt GuardrailAgente.GuardrailArn
+
+  FuncionAgenteAsesor:
+    Type: AWS::Lambda::Function
+    DependsOn: LogAgenteAsesor
+    Properties:
+      FunctionName: !Sub "${NombreProyecto}-agente-asesor"
+      Description: Agente de priorizacion asistida (Bedrock + Guardrail + output guard v2). Sin VPC ni BD.
+      Runtime: python3.12
+      Handler: agente_asesor.handler
+      Role: !GetAtt RolAgenteAsesor.Arn
+      Timeout: 120
+      MemorySize: 256
+      Code:
+        S3Bucket: !Ref BucketCurada
+        S3Key: !Sub "artefactos/lti-agente-${VersionAgente}.zip"
+      Environment:
+        Variables:
+          TENANT_ID: 11111111-1111-1111-1111-111111111111
+          BUCKET_MOTOR: !Sub "${NombreProyecto}-motor-shadow-${AWS::AccountId}-${AWS::Region}"
+          BUCKET_CURADA: !Ref BucketCurada
+          MODELO_ID: us.anthropic.claude-sonnet-4-6
+          GUARDRAIL_ID: !GetAtt GuardrailAgente.GuardrailId
+          GUARDRAIL_VERSION: !GetAtt GuardrailAgenteVersion.Version
+          MAX_TOKENS: "6000"
+          PROMPT_ARCHIVO: sistema_v2_8.md
+
   PresupuestoBajo:
     Type: AWS::Budgets::Budget
     Properties:
@@ -1285,7 +1379,389 @@ Resources:
             - SubscriptionType: EMAIL
               Address: !Ref EmailPresupuesto
 
+  # 2A (23-nov): el plan gratuito limita la retencion automatica a 1 dia (FreeTierRestrictionError).
+  # Compensacion: instantanea manual diaria con rotacion de 7 dias. Solo crea y borra instantaneas con el
+  # prefijo lti-rds-diario- de esta instancia; no tiene acceso a datos ni a la red de la base.
+  RolRespaldoDiario:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: {Service: lambda.amazonaws.com}
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: respaldo-diario-rds
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: ListarInstantaneas
+                Effect: Allow
+                Action: rds:DescribeDBSnapshots
+                Resource: "*"
+              - Sid: CrearDeLaInstancia
+                Effect: Allow
+                Action: rds:CreateDBSnapshot
+                Resource:
+                  - !Sub "arn:aws:rds:${AWS::Region}:${AWS::AccountId}:db:${BaseDatosRDS}"
+                  - !Sub "arn:aws:rds:${AWS::Region}:${AWS::AccountId}:snapshot:lti-rds-diario-*"
+              - Sid: EtiquetarYBorrarSoloPropias
+                Effect: Allow
+                Action: [rds:AddTagsToResource, rds:DeleteDBSnapshot]
+                Resource: !Sub "arn:aws:rds:${AWS::Region}:${AWS::AccountId}:snapshot:lti-rds-diario-*"
+
+  FuncionRespaldoDiario:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${NombreProyecto}-respaldo-diario"
+      Runtime: python3.12
+      Handler: index.handler
+      Role: !GetAtt RolRespaldoDiario.Arn
+      Timeout: 60
+      MemorySize: 128
+      Environment:
+        Variables:
+          INSTANCIA: !Ref BaseDatosRDS
+          RETENCION_DIAS: "7"
+          MINIMO_CONSERVAR: "3"
+      Code:
+        ZipFile: |
+          """Respaldo diario de lti-rds con instantaneas manuales (compensa el limite de retencion del plan gratuito).
+
+          Crea lti-rds-diario-AAAAMMDD (idempotente) y borra SOLO instantaneas manuales con ese prefijo y mas
+          antiguas que RETENCION_DIAS, conservando siempre al menos MINIMO_CONSERVAR (si la creacion fallara varios
+          dias seguidos, nunca se queda sin respaldos)."""
+          import datetime as dt
+          import os
+
+          PREFIJO = "lti-rds-diario-"
+
+
+          def ejecutar(rds, instancia, retencion_dias=7, minimo=3, ahora=None):
+              ahora = ahora or dt.datetime.now(dt.timezone.utc)
+              nombre = PREFIJO + ahora.strftime("%Y%m%d")
+              pag = rds.get_paginator("describe_db_snapshots")
+              propias = [s for p in pag.paginate(DBInstanceIdentifier=instancia, SnapshotType="manual")
+                         for s in p["DBSnapshots"] if s["DBSnapshotIdentifier"].startswith(PREFIJO)]
+              creada = False
+              if not any(s["DBSnapshotIdentifier"] == nombre for s in propias):
+                  rds.create_db_snapshot(DBInstanceIdentifier=instancia, DBSnapshotIdentifier=nombre,
+                                         Tags=[{"Key": "lti-respaldo", "Value": "diario"}])
+                  creada = True
+              disponibles = sorted((s for s in propias if s.get("Status") == "available" and s.get("SnapshotCreateTime")),
+                                   key=lambda s: s["SnapshotCreateTime"], reverse=True)
+              limite = ahora - dt.timedelta(days=retencion_dias)
+              borrar = [s["DBSnapshotIdentifier"] for s in disponibles[minimo:] if s["SnapshotCreateTime"] < limite]
+              for ident in borrar:
+                  rds.delete_db_snapshot(DBSnapshotIdentifier=ident)
+              return {"creada": nombre if creada else None, "borradas": borrar, "conservadas": len(disponibles) - len(borrar)}
+
+
+          def handler(event, context):
+              import boto3
+              r = ejecutar(boto3.client("rds"), os.environ["INSTANCIA"], int(os.environ.get("RETENCION_DIAS", "7")),
+                           int(os.environ.get("MINIMO_CONSERVAR", "3")))
+              print(r)
+              return r
+
+  ReglaRespaldoDiario:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub "${NombreProyecto}-respaldo-diario"
+      Description: Instantanea diaria de RDS (03:35 hora de Mexico, despues de la ventana de respaldo automatico)
+      ScheduleExpression: cron(35 9 * * ? *)
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt FuncionRespaldoDiario.Arn
+          Id: respaldo-diario
+
+  PermisoReglaRespaldoDiario:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref FuncionRespaldoDiario
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt ReglaRespaldoDiario.Arn
+
+  # ===================== Lote 3: deteccion (NIST 800-61) =====================
+  RegistroAccesoApi:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /lti/api-panel/acceso
+      RetentionInDays: 30
+
+  # D-2: trail de la cuenta con validacion de integridad; la evidencia ya no depende del historial de 90 dias.
+  BucketAuditoria:
+    Type: AWS::S3::Bucket
+    DependsOn: PermisoS3AlertaIAM
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: !Sub "${NombreProyecto}-auditoria-${AWS::AccountId}"
+      VersioningConfiguration:
+        Status: Enabled
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+      NotificationConfiguration:
+        LambdaConfigurations:
+          - Event: s3:ObjectCreated:*
+            Function: !GetAtt FuncionAlertaIAMTrail.Arn
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: prefix
+                    Value: !Sub "AWSLogs/${AWS::AccountId}/CloudTrail/us-east-1/"
+      LifecycleConfiguration:
+        Rules:
+          - Id: retencion-180-dias
+            Status: Enabled
+            ExpirationInDays: 180
+            NoncurrentVersionExpiration:
+              NoncurrentDays: 30
+
+  PoliticaBucketAuditoria:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref BucketAuditoria
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: CloudTrailLeeAcl
+            Effect: Allow
+            Principal: {Service: cloudtrail.amazonaws.com}
+            Action: s3:GetBucketAcl
+            Resource: !GetAtt BucketAuditoria.Arn
+            Condition:
+              StringEquals:
+                aws:SourceArn: !Sub "arn:aws:cloudtrail:${AWS::Region}:${AWS::AccountId}:trail/${NombreProyecto}-auditoria"
+          - Sid: CloudTrailEscribeSoloSuPrefijo
+            Effect: Allow
+            Principal: {Service: cloudtrail.amazonaws.com}
+            Action: s3:PutObject
+            Resource: !Sub "${BucketAuditoria.Arn}/AWSLogs/${AWS::AccountId}/*"
+            Condition:
+              StringEquals:
+                aws:SourceArn: !Sub "arn:aws:cloudtrail:${AWS::Region}:${AWS::AccountId}:trail/${NombreProyecto}-auditoria"
+          - Sid: SoloTLS
+            Effect: Deny
+            Principal: "*"
+            Action: "s3:*"
+            Resource:
+              - !GetAtt BucketAuditoria.Arn
+              - !Sub "${BucketAuditoria.Arn}/*"
+            Condition:
+              Bool:
+                aws:SecureTransport: "false"
+
+  TrailAuditoria:
+    Type: AWS::CloudTrail::Trail
+    DependsOn: PoliticaBucketAuditoria
+    Properties:
+      TrailName: !Sub "${NombreProyecto}-auditoria"
+      S3BucketName: !Ref BucketAuditoria
+      IsLogging: true
+      IsMultiRegionTrail: true
+      IncludeGlobalServiceEvents: true
+      EnableLogFileValidation: true
+
+  # D-3: alerta a Slack ante cambios que abren superficie o apagan la auditoria (en esta region).
+  # Sin IP ni ID de cuenta en el mensaje: solo que paso, en que servicio, quien (principalId) y cuando.
+  # Los eventos de IAM (CreateAccessKey, CreateUser...) llegan a EventBridge en us-east-1: van en D-3b (aparte).
+  ReglaAlertaCambiosSeguridad:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub "${NombreProyecto}-alerta-cambios-seguridad"
+      Description: Cambios de red, exposicion publica o auditoria -> Slack (D-3)
+      State: ENABLED
+      EventPattern:
+        detail-type: ["AWS API Call via CloudTrail"]
+        detail:
+          eventSource: [ec2.amazonaws.com, rds.amazonaws.com, lambda.amazonaws.com, s3.amazonaws.com, cloudtrail.amazonaws.com]
+          eventName:
+            - AuthorizeSecurityGroupIngress
+            - ModifySecurityGroupRules
+            - ModifyDBInstance
+            - CreateFunctionUrlConfig20211031
+            - UpdateFunctionUrlConfig20211031
+            - PutBucketPolicy
+            - PutBucketAcl
+            - DeleteBucketPublicAccessBlock
+            - PutBucketPublicAccessBlock
+            - StopLogging
+            - DeleteTrail
+            - UpdateTrail
+            - PutEventSelectors
+      Targets:
+        - Arn: !Ref ArnSlack
+          Id: slack-cambios
+          InputTransformer:
+            InputPathsMap:
+              evento: "$.detail.eventName"
+              servicio: "$.detail.eventSource"
+              tipo: "$.detail.userIdentity.type"
+              quien: "$.detail.userIdentity.principalId"
+              cuando: "$.detail.eventTime"
+              region: "$.detail.awsRegion"
+            InputTemplate: |
+              {"mensajes":[{"ids":[1],"title":"Cambio de seguridad en AWS","body":"<evento> en <servicio> (<region>)\nQuien: <tipo> <quien>\nCuando: <cuando> UTC\nSi no fue un cambio planeado, revisar el evento en CloudTrail."}]}
+
+  PermisoReglaAlertaSlack:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref ArnSlack
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt ReglaAlertaCambiosSeguridad.Arn
+
+  # D-3b v2 (24-nov): la SCP de la organizacion prohibe operar en us-east-1, donde EventBridge entrega los eventos
+  # de IAM. Se detectan leyendo los archivos del trail multirregion (prefijo us-east-1) cuando llegan al bucket.
+  RolAlertaIAMTrail:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: {Service: lambda.amazonaws.com}
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: leer-trail-us-east-1-y-avisar
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: s3:GetObject
+                Resource: !Sub "arn:aws:s3:::${NombreProyecto}-auditoria-${AWS::AccountId}/AWSLogs/${AWS::AccountId}/CloudTrail/us-east-1/*"
+              - Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource: !Ref ArnSlack
+
+  FuncionAlertaIAMTrail:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${NombreProyecto}-alerta-iam-trail"
+      Runtime: python3.12
+      Handler: index.handler
+      Role: !GetAtt RolAlertaIAMTrail.Arn
+      Timeout: 60
+      MemorySize: 256
+      ReservedConcurrentExecutions: 2
+      Environment:
+        Variables:
+          ARN_SLACK: !Ref ArnSlack
+      Code:
+        ZipFile: |
+          """D-3b v2: alerta de cambios IAM leyendo los archivos del trail (la SCP de la organizacion no permite operar en us-east-1)."""
+          import gzip, json, os, re, urllib.parse
+          import boto3
+
+          EVENTOS = {"CreateUser", "CreateAccessKey", "UpdateAccessKey", "CreateLoginProfile", "UpdateLoginProfile",
+                     "DeactivateMFADevice", "AddUserToGroup", "AttachUserPolicy", "PutUserPolicy", "AttachRolePolicy",
+                     "PutRolePolicy", "UpdateAssumeRolePolicy", "DeleteRolePermissionsBoundary", "TagUser", "TagRole"}
+          MAX_BYTES = 20 * 1024 * 1024
+          MAX_LINEAS = 10
+
+
+          def _limpio(v, n=60):
+              return re.sub(r"[^A-Za-z0-9:_.\-]", "?", str(v or "-"))[:n]
+
+
+          def extraer(registros):
+              out = []
+              for r in registros:
+                  if r.get("eventSource") == "iam.amazonaws.com" and r.get("eventName") in EVENTOS:
+                      ui = r.get("userIdentity") or {}
+                      out.append("%s (%s) | %s %s | %s UTC" % (
+                          _limpio(r["eventName"]), "fallido" if r.get("errorCode") else "aplicado",
+                          _limpio(ui.get("type"), 20), _limpio(ui.get("principalId")), _limpio(r.get("eventTime"), 25)))
+              return out
+
+
+          def mensaje(lineas):
+              extra = len(lineas) - MAX_LINEAS
+              cuerpo = "\n".join(lineas[:MAX_LINEAS]) + (f"\n(+{extra} mas en CloudTrail)" if extra > 0 else "")
+              cuerpo += "\nSi no fue un cambio planeado (despliegue revisado), revisar el evento en CloudTrail."
+              return {"mensajes": [{"ids": [1], "title": "Cambio de identidades (IAM) en AWS", "body": cuerpo}]}
+
+
+          def handler(event, context, s3=None, lam=None):
+              s3 = s3 or boto3.client("s3"); lam = lam or boto3.client("lambda")
+              lineas = []
+              for rec in event.get("Records", []):
+                  b = rec["s3"]["bucket"]["name"]; k = urllib.parse.unquote_plus(rec["s3"]["object"]["key"])
+                  if "/CloudTrail/us-east-1/" not in k or not k.endswith(".json.gz") or rec["s3"]["object"].get("size", 0) > MAX_BYTES:
+                      continue
+                  datos = json.loads(gzip.decompress(s3.get_object(Bucket=b, Key=k)["Body"].read()))
+                  lineas += extraer(datos.get("Records", []))
+              if not lineas:
+                  return {"alertas": 0}
+              r = lam.invoke(FunctionName=os.environ["ARN_SLACK"], Payload=json.dumps(mensaje(lineas)).encode())
+              print("alertas_iam:", len(lineas), "estado:", r.get("StatusCode"))
+              return {"alertas": len(lineas)}
+
+  PermisoS3AlertaIAM:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref FuncionAlertaIAMTrail
+      Principal: s3.amazonaws.com
+      SourceAccount: !Ref AWS::AccountId
+      SourceArn: !Sub "arn:aws:s3:::${NombreProyecto}-auditoria-${AWS::AccountId}"
+
+  # O-1 (24-nov): una corrida que termina en FAILED (motor caido o no conforme, ErrorIntegracion) avisa a Slack.
+  ReglaAlertaFlujoFallido:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub "${NombreProyecto}-alerta-flujo-fallido"
+      Description: Ejecucion del flujo diario en FAILED, TIMED_OUT o ABORTED -> Slack (O-1)
+      State: ENABLED
+      EventPattern:
+        source: [aws.states]
+        detail-type: ["Step Functions Execution Status Change"]
+        detail:
+          status: [FAILED, TIMED_OUT, ABORTED]
+          stateMachineArn: [!Ref FlujoDiario]
+      Targets:
+        - Arn: !Ref ArnSlack
+          Id: slack-flujo-fallido
+          InputTransformer:
+            InputPathsMap:
+              estado: "$.detail.status"
+              ejecucion: "$.detail.name"
+              cuando: "$.time"
+            InputTemplate: |
+              {"mensajes":[{"ids":[1],"title":"Flujo diario sin completar","body":"Estado: <estado>\nEjecucion: <ejecucion>\nCuando: <cuando> UTC\nLa corrida no publico resultados. Revisar el historial de la ejecucion en Step Functions (motor o integracion)."}]}
+
+  PermisoReglaAlertaFlujo:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref ArnSlack
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt ReglaAlertaFlujoFallido.Arn
+
 Outputs:
+  FuncionRespaldoDiarioNombre:
+    Value: !Ref FuncionRespaldoDiario
+  FuncionAgenteAsesorNombre:
+    Value: !Ref FuncionAgenteAsesor
+  GuardrailAgenteId:
+    Value: !GetAtt GuardrailAgente.GuardrailId
   BucketRawNombre:
     Value: !Ref BucketRaw
   BucketCuradaNombre:
@@ -1302,10 +1778,6 @@ Outputs:
     Value: !Ref FlujoDiario
   FuncionNormalizacionCuradaNombre:
     Value: !Ref FuncionNormalizacionCurada
-  FuncionCargaNombre:
-    Value: !Ref FuncionCarga
-  FuncionCruceRDSNombre:
-    Value: !Ref FuncionCruceRDS
   CMDBUrl:
     Value: !Sub "http://${InstanciaCMDB.PublicIp}:7474"
   CMDBBolt:

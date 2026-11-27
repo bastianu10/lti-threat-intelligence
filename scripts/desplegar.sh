@@ -49,8 +49,16 @@ import json, os
 pares = {"EMAIL_PRESUPUESTO": "EmailPresupuesto", "IP_PERMITIDA": "IPPermitida", "CLAVE_RDS": "ClaveRDS",
          "CLAVE_USUARIOS": "ClaveUsuarios", "CLAVE_NEO4J": "ClaveNeo4j", "EMAIL_ADMIN_PANEL": "EmailAdminPanel"}
 p = [{"ParameterKey": "VersionNucleo", "ParameterValue": os.environ["VERSION"]},
-     {"ParameterKey": "ImagenLinuxArm", "ParameterValue": os.environ["AMI_CMDB"]}]
+     {"ParameterKey": "ImagenLinuxArm", "ParameterValue": os.environ["AMI_CMDB"]},
+     {"ParameterKey": "ArnSlack", "UsePreviousValue": True}]   # O-10: sin valor por defecto en la plantilla publica
+# C2a: solo se pasan los parametros que la plantilla declara (asi retirar uno no rompe el despliegue).
+import re
+txt = open("infra/plantilla-aws.yaml", encoding="utf-8").read()
+bloque = re.search(r"^Parameters:\n(.*?)^\S", txt, re.S | re.M).group(1)
+declarados = set(re.findall(r"^  ([A-Za-z0-9]+):\s*$", bloque, re.M))
+p = [x for x in p if x["ParameterKey"] in declarados]
 for var, clave in pares.items():
+    if clave not in declarados: continue
     v = os.environ.get(var, "")
     p.append({"ParameterKey": clave, "ParameterValue": v} if v else {"ParameterKey": clave, "UsePreviousValue": True})
 print(json.dumps(p))
@@ -98,6 +106,11 @@ if [ -n "$PELIGRO" ]; then
   exit 1
 fi
 
+# Leccion de C-1 (24-nov): un cambio en Cognito exige que el panel publicado ya lo soporte.
+if printf '%s' "$CAMBIOS" | grep -q '"UsuariosPanel"'; then
+  echo; echo "AVISO: el change set modifica Cognito (UsuariosPanel). Antes de escribir SI, confirma que el panel"
+  echo "       publicado (s3://.../index.html) ya es la version que soporta este cambio."
+fi
 echo; read -r -p "Revisa la lista. Escribe SI para aplicar: " RESP
 if [ "$RESP" != "SI" ]; then
   aws cloudformation delete-change-set --stack-name "$STACK" --change-set-name "$CS" --region "$REGION" --profile "$PERFIL"

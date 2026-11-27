@@ -1,0 +1,67 @@
+{
+  "schema_version": "modelo-negocio-v1",
+  "tenant_id": "11111111-1111-1111-1111-111111111111",
+  "version": "lyft-2026.11-v1",
+  "aprobado": true,
+  "aprobacion": {
+    "rol_aprobador": "dueno_de_riesgo_ti",
+    "fecha": "2026-11-24"
+  },
+  "_nota": "v1 APROBADA por el rol dueno_de_riesgo_ti el 2026-11-24 a partir del borrador-3, con 4 ajustes contrastados contra la descripcion de los 80 activos vigentes: ecobici +deteccion de fraude y analitica; erp sin nomina (ningun activo la soporta) y +logistica de refacciones y replica de datos; crm +vista unica del cliente; propuesta-lti +registro del inventario y controles propios. Con aprobado=true el guard admite revisar_a_la_baja solo con datos verificados. Sin nombres ni correos.",
+  "apetito_riesgo": "bajo",
+  "tolerancia": "Ningun hallazgo en KEV o con riesgo alto/inaceptable puede quedar sin tratamiento ni aceptacion formal mas de 15 dias.",
+  "dominios": [
+    {
+      "codigo": "ecobici",
+      "nombre": "Operacion del servicio Ecobici (bicicletas compartidas)",
+      "procesos_criticos": [
+        "Autenticacion de usuarios y emision de tokens para viajes y pagos",
+        "Borde de red y enrutamiento del trafico de la aplicacion movil",
+        "Control remoto de candados de vehiculos (desbloqueo y bloqueo)",
+        "Gestion de viajes en tiempo real",
+        "Tarifas, cobros y membresias",
+        "Notificaciones a usuarios sobre cobros y viajes",
+        "Deteccion de fraude y analitica de la operacion"
+      ],
+      "escenario_impacto": "Una falla en autenticacion, borde o control de candados permite suplantar usuarios, usar vehiculos sin pago o interrumpir el servicio en toda la flota; una falla en cobros o notificaciones afecta ingresos, genera cobros indebidos o fraude y, con datos de pago, obligaciones regulatorias.",
+      "validacion": "aprobado_por_dueno"
+    },
+    {
+      "codigo": "crm",
+      "nombre": "Relacion con clientes (CRM)",
+      "validacion": "aprobado_por_dueno",
+      "procesos_criticos": [
+        "Gestion de cuentas y datos de contacto de usuarios",
+        "Atencion y soporte a usuarios",
+        "Comunicaciones y campanas dirigidas a usuarios",
+        "Vista unica del cliente (Customer 360) y resolucion de identidades"
+      ],
+      "escenario_impacto": "Una falla expone datos personales de usuarios, con obligaciones de proteccion de datos y notificacion, dano reputacional y riesgo de fraude o suplantacion dirigida a usuarios."
+    },
+    {
+      "codigo": "erp",
+      "nombre": "Gestion empresarial (ERP)",
+      "validacion": "aprobado_por_dueno",
+      "procesos_criticos": [
+        "Contabilidad, facturacion y conciliacion de ingresos",
+        "Compras y pagos a proveedores",
+        "Logistica y suministro de refacciones de la flota",
+        "Replica de datos del ERP hacia la analitica (integridad de reportes financieros)"
+      ],
+      "escenario_impacto": "Una falla permite fraude financiero o pagos indebidos, altera registros contables o la replica hacia la analitica, o impide el cierre contable y el suministro de refacciones de la flota."
+    },
+    {
+      "codigo": "propuesta-lti",
+      "nombre": "Plataforma de inteligencia de amenazas propuesta (LTI)",
+      "validacion": "aprobado_por_dueno",
+      "procesos_criticos": [
+        "Ingesta y correlacion de inteligencia de amenazas y vulnerabilidades",
+        "Priorizacion y seguimiento de vulnerabilidades en el panel",
+        "Notificaciones de seguridad al equipo responsable",
+        "Registro del inventario de activos y aprobaciones del dueno",
+        "Controles de seguridad de la propia plataforma (guardrails, firma de codigo, WAF, MFA)"
+      ],
+      "escenario_impacto": "Una falla deja al equipo de seguridad sin visibilidad o con prioridades manipuladas, y puede exponer el inventario de activos y sus vulnerabilidades, informacion util para un atacante."
+    }
+  ]
+}

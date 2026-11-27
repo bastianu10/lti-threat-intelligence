@@ -1,0 +1,7 @@
+# Artefactos de compilacion (se suben a S3 con armar_paquete_agente.sh; no se versionan)
+lti-agente-*.zip
+# Datos reales del motor y casos o resultados generados a partir de ellos: identificadores internos
+insumos/*real*.json
+dorados/casos/
+dorados/resultados/
+__pycache__/

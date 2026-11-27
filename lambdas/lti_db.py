@@ -11,15 +11,17 @@ def agregar_argumentos(ap, usuario_defecto):
     ap.add_argument("--db", default="lti")
     ap.add_argument("--user", default=usuario_defecto)
     ap.add_argument("--password", required=True)
-    ap.add_argument("--sin-ssl", action="store_true", help="solo para pruebas con una base local")
+    ap.add_argument("--ca-bundle", default=None, help="ruta al certificado CA de RDS (ej. rds-ca-bundle.pem)")
+    ap.add_argument("--sin-ssl", action="store_true", help="solo para pruebas con una base local sin TLS")
 
 
 def conectar(args, tenant=None):
     ctx = None
     if not args.sin_ssl:
-        ctx = ssl.create_default_context()
-        ctx.check_hostname = False   # cifra la conexion; no valida el certificado de RDS (aceptable en prototipo)
-        ctx.verify_mode = ssl.CERT_NONE
+        # P0.2: validar certificado y hostname del servidor RDS. Pasar --ca-bundle con el PEM
+        # de AWS (descargable de https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem).
+        ctx = ssl.create_default_context(cafile=getattr(args, "ca_bundle", None) or None)
+        # check_hostname y verify_mode=CERT_REQUIRED son el default de create_default_context.
     con = pg.Connection(args.user, host=args.host, port=args.port, database=args.db,
                         password=args.password, ssl_context=ctx)
     con.run("SET TIME ZONE 'UTC'")
