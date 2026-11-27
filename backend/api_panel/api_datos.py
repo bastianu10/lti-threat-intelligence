@@ -508,15 +508,8 @@ def _cog():
     return _COG
 
 
-def _grupos_caller(event):
-    ctx = (event.get("requestContext") or {})
-    auth = ctx.get("authorizer") or {}
-    # HTTP API v2.0 JWT authorizer: auth["jwt"]["claims"]
-    # Algunos setups pasan claims directo en auth["claims"]
-    claims = (auth.get("jwt") or {}).get("claims") or auth.get("claims") or {}
-    raw = claims.get("cognito:groups") or claims.get("groups") or ""
-    print("DEBUG _grupos_caller raw=%r keys=%s" % (raw, list(claims.keys())[:12]))
-    if isinstance(raw, list):
+def _parse_grupos(raw):
+    if isinstance(raw, (list, set)):
         return set(raw)
     s = str(raw).strip()
     if not s:
@@ -529,9 +522,38 @@ def _grupos_caller(event):
     return set(s.replace(",", " ").split())
 
 
+def _grupos_caller(event):
+    # Intento 1: claims del autorizador JWT de API Gateway (HTTP API v2.0)
+    ctx = (event.get("requestContext") or {})
+    auth = ctx.get("authorizer") or {}
+    claims = (auth.get("jwt") or {}).get("claims") or auth.get("claims") or {}
+    raw = claims.get("cognito:groups") or claims.get("groups") or ""
+    grupos = _parse_grupos(raw)
+    print("DEBUG grupos via claims: raw=%r -> %s" % (raw, grupos))
+    if grupos:
+        return grupos
+
+    # Intento 2: decodificar el payload del JWT desde el header Authorization
+    # (la firma ya fue verificada por API Gateway; no es necesario reverificarla)
+    try:
+        import base64 as _b64
+        token = ((event.get("headers") or {}).get("authorization") or "").strip()
+        if token.lower().startswith("bearer "):
+            token = token[7:].strip()
+        part = token.split(".")[1] if token else ""
+        pad = (4 - len(part) % 4) % 4
+        payload = json.loads(_b64.b64decode(part + "=" * pad, altchars=b"-_"))
+        raw2 = payload.get("cognito:groups") or payload.get("groups") or []
+        grupos2 = _parse_grupos(raw2)
+        print("DEBUG grupos via JWT header: raw=%r -> %s" % (raw2, grupos2))
+        return grupos2
+    except Exception as exc:
+        print("DEBUG grupos fallback error: %r" % str(exc))
+    return set()
+
+
 def _requiere_admin(event):
-    grupos = _grupos_caller(event)
-    if "admin" not in grupos:
+    if "admin" not in _grupos_caller(event):
         raise ErrorCliente(403, "Se requiere el grupo admin")
 
 

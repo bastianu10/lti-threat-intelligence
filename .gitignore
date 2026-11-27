@@ -10,5 +10,6 @@ paquetes/*
 !paquetes/lti-nucleo-v12.zip
 !paquetes/lti-nucleo-v13.zip
 !paquetes/lti-nucleo-v14.zip
+!paquetes/lti-nucleo-v15.zip
 respaldo/
 /plantilla-aws.yaml
