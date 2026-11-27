@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <!-- F-4: CSP estricta. Si cambias el script en linea, recalcula su sha256 (scripts/csp_hash.py). -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-wOAfK79Xqv2TiIygMod3/MBR2fOqZpLotDe6xI4d+bI='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self' https://cognito-idp.us-east-2.amazonaws.com; img-src 'self' data:; manifest-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'; upgrade-insecure-requests">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-h9t0Bf5fO4nv6CI1+y77NJVt0VIv2/UNHk4Ar4/fcAo='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self' https://cognito-idp.us-east-2.amazonaws.com; img-src 'self' data:; manifest-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'; upgrade-insecure-requests">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Lyft Threat Intelligence</title>
 <meta name="color-scheme" content="light dark">
@@ -241,8 +241,8 @@ body.sinsesion .main{overflow-x:clip;padding:0;min-height:100vh;display:grid;pla
 .ase-l{margin:6px 0;padding-left:18px;font-size:13.5px;line-height:1.5} .ase-l li{margin:5px 0}
 .ase-pie{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:18px;color:var(--muted);font-size:12px}
 
-/* ---------- gestión de usuarios (solo admin) ---------- */
-.usrs-top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+/* ---------- usuarios del panel (solo lectura, solo admin) ---------- */
+.usrs-nota{font-size:12.5px;color:var(--muted);background:var(--soft);border:1px solid var(--line);border-radius:8px;padding:8px 12px;margin-bottom:16px}
 .usrs-tbl{overflow-x:auto;-webkit-overflow-scrolling:touch}
 .usrs-tbl table{width:100%;border-collapse:collapse;font-size:13.5px}
 .usrs-tbl th{text-align:left;font-size:11.5px;color:var(--muted);font-weight:600;border-bottom:1px solid var(--line2);padding:6px 8px;white-space:nowrap}
@@ -251,16 +251,7 @@ body.sinsesion .main{overflow-x:clip;padding:0;min-height:100vh;display:grid;pla
 .grp-pill{display:inline-block;font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;margin:1px 2px}
 .grp-pill.admin{background:var(--p1);color:#fff}
 .grp-pill.analista{background:var(--p2);color:#fff}
-.grp-pill.lector{background:var(--soft);color:var(--fg);border:1px solid var(--line)}
-#dlg-usr{position:fixed;inset:0;background:rgba(30,18,32,.4);z-index:70;display:flex;align-items:center;justify-content:center}
-#dlg-usr form{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:24px 28px;width:min(440px,92vw);display:grid;gap:14px}
-#dlg-usr h3{margin:0;font-size:16px}
-.dlg-field{display:grid;gap:5px}
-.dlg-field label{font-size:12.5px;color:var(--muted);font-weight:600}
-.dlg-field input[type=email],.dlg-field input[type=text]{width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:14px;background:var(--bg);color:var(--fg)}
-.dlg-groups{display:flex;gap:8px;flex-wrap:wrap}
-.dlg-groups label{display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer}
-.dlg-foot{display:flex;gap:8px;justify-content:flex-end;margin-top:4px}
+.grp-pill.lector,.grp-pill.lectura{background:var(--soft);color:var(--fg);border:1px solid var(--line)}
 
 /* ---------- resumen semanal ---------- */
 .rep{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px 26px;max-width:1040px}
@@ -436,11 +427,11 @@ MOCK["reporte-semanal"]=(function(){var hoy=new Date(),f=function(d){var x=new D
     top:[{cve:"CVE-0000-0001",prioridad:1,kev:true,internet:true,fecha_limite:f(13),dias:-13,activos:["auth-oidc","alb-envoy","notifications"],n_activos:3,ia:"mantener"},
          {cve:"CVE-0000-0002",prioridad:2,kev:false,internet:false,fecha_limite:f(-6),dias:6,activos:["lock-orchestrator"],n_activos:1,ia:"escalar"}],
     agente:{disponible:true,casos_semana:63,costo_estimado_usd:3.97,recomendaciones:{escalar:2,mantener:7,revisar_a_la_baja:0}}}})();
-MOCK["usuarios"]={items:[
-  {username:"ana.garcia",correo:"ana.garcia@lyft.example",grupos:["admin"],habilitado:true,creado:"2026-09-01T10:00:00Z"},
-  {username:"carlos.ruiz",correo:"carlos.ruiz@lyft.example",grupos:["analista"],habilitado:true,creado:"2026-09-15T14:30:00Z"},
-  {username:"diana.lopez",correo:"diana.lopez@lyft.example",grupos:["lector"],habilitado:true,creado:"2026-10-02T09:00:00Z"},
-  {username:"esteban.mora",correo:"esteban.mora@lyft.example",grupos:["analista"],habilitado:false,creado:"2026-10-20T11:00:00Z"}
+MOCK["sistema/usuarios"]={items:[
+  {username:"ana.garcia",correo:"ana.garcia@lyft.example",grupos:["admin"],habilitado:true,estado:"CONFIRMED",mfa:true,creado:"2026-09-01T10:00:00Z"},
+  {username:"carlos.ruiz",correo:"carlos.ruiz@lyft.example",grupos:["lectura"],habilitado:true,estado:"CONFIRMED",mfa:true,creado:"2026-09-15T14:30:00Z"},
+  {username:"diana.lopez",correo:"diana.lopez@lyft.example",grupos:["lectura"],habilitado:true,estado:"FORCE_CHANGE_PASSWORD",mfa:false,creado:"2026-10-02T09:00:00Z"},
+  {username:"esteban.mora",correo:"esteban.mora@lyft.example",grupos:["lectura"],habilitado:false,estado:"CONFIRMED",mfa:false,creado:"2026-10-20T11:00:00Z"}
 ]};
 MOCK["asesoria"]={disponible:true,vigente:true,corrida_id:"demo0000",generado_en:new Date(Date.now()-36e5).toISOString(),modelo:"modelo de ejemplo",confianza:0.5,
   motor:{prioridad_final:1,prioridad_base:1,piso:1,tipo:"investigacion",aplicabilidad:"candidate",version:"(ejemplo)"},
@@ -478,9 +469,6 @@ function api(path,o){
   if(DEMO){return new Promise(function(ok,mal){setTimeout(function(){
     var base=path.split("?")[0];
     if(o.method==="PUT"&&base==="configuracion"){ok({configuracion:o.body,aplicado:{nvd:"aplicado",epss:"aplicado",osv:"aplicado",cmdb:"aplicado"}});return}
-    if(o.method==="PUT"&&base.startsWith("usuarios/")){ok({ok:true});return}
-    if(o.method==="POST"&&base==="usuarios"){ok({ok:true});return}
-    if(o.method==="DELETE"&&base.startsWith("usuarios/")){ok({ok:true});return}
     if(o.method==="POST"){ok({iniciada:new Date().toISOString(),fuente:(o.body||{}).fuente});return}
     var d=MOCK[base];if(!d){mal(new Error("sin datos"));return}
     if(base==="tendencia"){var m=/dias=(\d+)/.exec(path);var n=m?+m[1]:30;ok({dias:n,puntos:d.puntos.slice(-n)});return}
@@ -633,70 +621,26 @@ function viewReporte(){
 }
 function esAdmin(){return !!(AUTH&&(AUTH.grupos||[]).indexOf("admin")>=0)}
 
-/* ---------- gestión de usuarios (solo admin) ---------- */
-var GRP_LABEL={admin:"Administrador",analista:"Analista",lector:"Lector"};
-var GRP_KEYS=["admin","analista","lector"];
-function grpPill(g){return '<span class="grp-pill '+g+'">'+esc(GRP_LABEL[g]||g)+'</span>'}
+/* ---------- usuarios del panel (solo lectura, solo admin) ---------- */
+var GRP_LABEL={admin:"Administrador",lectura:"Lectura",analista:"Analista",lector:"Lector"};
+function grpPill(g){return '<span class="grp-pill '+esc(g)+'">'+esc(GRP_LABEL[g]||g)+'</span>'}
+var USR_NOTA='Las altas, cambios de grupo y bajas los realiza un administrador mediante el procedimiento documentado, que queda registrado en CloudTrail.';
 function viewUsuarios(){
-  if(!esAdmin()){main.innerHTML='<div class="top"><div><h1>Gestión de usuarios</h1></div></div><p class="empty">Solo los administradores pueden acceder a esta sección.</p>';return}
-  main.innerHTML='<div class="top"><div><h1>Gestión de usuarios</h1><p>Crea, edita y elimina cuentas del panel LTI.</p></div>'+(DEMO?'<div class="acts"><span class="chip">Datos de ejemplo</span></div>':'')+'</div><p class="empty">Cargando…</p>';
-  api("usuarios").then(function(d){
+  if(!esAdmin()){main.innerHTML='<div class="top"><div><h1>Usuarios del panel</h1></div></div><p class="empty">Solo los administradores pueden ver esta sección.</p>';return}
+  main.innerHTML='<div class="top"><div><h1>Usuarios del panel</h1><p>Lista de solo lectura de las cuentas y sus privilegios.</p></div>'+(DEMO?'<div class="acts"><span class="chip">Datos de ejemplo</span></div>':'')+'</div><p class="empty">Cargando…</p>';
+  api("sistema/usuarios").then(function(d){
     var items=d.items||[];
-    main.innerHTML='<div class="top"><div><h1>Gestión de usuarios</h1><p>Crea, edita y elimina cuentas del panel LTI.</p></div>'+(DEMO?'<div class="acts"><span class="chip">Datos de ejemplo</span></div>':'')+'</div>'+
-      '<div style="max-width:900px"><div class="usrs-top"><span style="font-size:13.5px;color:var(--muted)">'+items.length+' usuario'+(items.length===1?'':'s')+'</span>'+
-      '<button class="btn pri" id="usr-nuevo">+ Nuevo usuario</button></div>'+
-      '<div class="usrs-tbl"><table><thead><tr><th>Correo</th><th>Nombre de usuario</th><th>Privilegios</th><th>Estado</th><th>Creado</th><th></th></tr></thead><tbody>'+
-      items.map(function(u,i){return '<tr><td>'+esc(u.correo)+'</td><td class="mono" style="font-size:12.5px">'+esc(u.username)+'</td><td>'+(u.grupos||[]).map(grpPill).join("")+'</td>'+
-        '<td>'+(u.habilitado?'<span class="pill st-ok">Activo</span>':'<span class="pill st-off">Deshabilitado</span>')+'</td>'+
-        '<td style="color:var(--muted);font-size:12.5px">'+esc(corta(u.creado))+'</td>'+
-        '<td><button class="btn sm" data-usr-edit="'+i+'">Editar</button> '+
-        '<button class="btn sm" style="color:var(--bad)" data-usr-del="'+esc(u.username)+'" data-usr-correo="'+esc(u.correo)+'">Eliminar</button></td></tr>'}).join("")+
+    main.innerHTML='<div class="top"><div><h1>Usuarios del panel</h1><p>Lista de solo lectura de las cuentas y sus privilegios.</p></div>'+(DEMO?'<div class="acts"><span class="chip">Datos de ejemplo</span></div>':'')+'</div>'+
+      '<div style="max-width:900px"><p class="usrs-nota">'+esc(USR_NOTA)+'</p>'+
+      '<p style="font-size:13.5px;color:var(--muted);margin:0 0 10px">'+items.length+' usuario'+(items.length===1?'':'s')+'</p>'+
+      '<div class="usrs-tbl"><table><thead><tr><th>Correo</th><th>Usuario</th><th>Grupo</th><th>Estado</th><th>MFA</th><th>Alta</th></tr></thead><tbody>'+
+      items.map(function(u){return '<tr><td>'+esc(u.correo)+'</td><td class="mono" style="font-size:12.5px">'+esc(u.username)+'</td>'+
+        '<td>'+((u.grupos||[]).length?(u.grupos).map(grpPill).join(""):'<span style="color:var(--muted)">—</span>')+'</td>'+
+        '<td>'+(u.habilitado?'<span class="pill st-ok">Activo</span>':'<span class="pill st-off">Deshabilitado</span>')+(u.estado&&u.estado!=="CONFIRMED"?'<br><span style="color:var(--muted);font-size:11.5px">'+esc(u.estado)+'</span>':'')+'</td>'+
+        '<td>'+(u.mfa?'Sí':'No')+'</td>'+
+        '<td style="color:var(--muted);font-size:12.5px">'+esc(corta(u.creado))+'</td></tr>'}).join("")+
       '</tbody></table></div></div>';
-    var usrsData=items;
-    function dlgCerrar(){var d=document.getElementById("dlg-usr");if(d)d.remove()}
-    function dlgAbrir(usr){
-      var edit=!!usr,f=document.createElement("div");f.id="dlg-usr";
-      f.innerHTML='<form autocomplete="off"><h3>'+(edit?"Editar usuario":"Nuevo usuario")+'</h3>'+
-        '<div class="dlg-field"><label>Correo electrónico</label><input type="email" id="dlg-correo" placeholder="nombre@lyft.com" value="'+esc(edit?usr.correo:"")+(edit?' disabled':'')+'" '+(edit?"readonly":"")+' required></div>'+
-        (edit?'':'<div class="dlg-field"><label>Nombre de usuario (sin espacios)</label><input type="text" id="dlg-uname" placeholder="nombre.apellido" pattern="[a-zA-Z0-9._-]+" required></div>')+
-        '<div class="dlg-field"><label>Privilegios</label><div class="dlg-groups">'+
-          GRP_KEYS.map(function(g){var checked=edit&&(usr.grupos||[]).indexOf(g)>=0;return '<label><input type="checkbox" name="grp" value="'+g+'" '+(checked?"checked":"")+'>'+esc(GRP_LABEL[g])+'</label>'}).join("")+
-        '</div></div>'+
-        (edit?'<div class="dlg-field"><label>Estado</label><select id="dlg-estado"><option value="1" '+(usr.habilitado?"selected":"")+'>Activo</option><option value="0" '+(!usr.habilitado?"selected":"")+'>Deshabilitado</option></select></div>':'')+
-        '<p id="dlg-err" style="color:var(--bad);font-size:13px;margin:0;display:none"></p>'+
-        '<div class="dlg-foot"><button type="button" class="btn" id="dlg-cancel">Cancelar</button><button type="submit" class="btn pri" id="dlg-ok">'+(edit?"Guardar":"Crear")+'</button></div>'+
-      '</form>';
-      document.body.appendChild(f);
-      document.getElementById("dlg-cancel").addEventListener("click",dlgCerrar);
-      f.addEventListener("click",function(e){if(e.target===f)dlgCerrar()});
-      f.querySelector("form").addEventListener("submit",function(e){
-        e.preventDefault();
-        var bt=document.getElementById("dlg-ok"),errEl=document.getElementById("dlg-err");
-        var grupos=Array.prototype.slice.call(f.querySelectorAll("input[name=grp]:checked")).map(function(x){return x.value});
-        if(!grupos.length){errEl.textContent="Elige al menos un privilegio.";errEl.style.display="";return}
-        bt.disabled=true;errEl.style.display="none";
-        if(edit){
-          var cuerpo={grupos:grupos,habilitado:document.getElementById("dlg-estado").value==="1"};
-          api("usuarios/"+encodeURIComponent(usr.username),{method:"PUT",body:cuerpo}).then(function(){dlgCerrar();toast("Usuario actualizado.");viewUsuarios()},function(er){bt.disabled=false;errEl.textContent=er.message||"Error al guardar.";errEl.style.display=""});
-        } else {
-          var correo=document.getElementById("dlg-correo").value.trim();
-          var uname=document.getElementById("dlg-uname").value.trim();
-          if(!correo||!uname){errEl.textContent="Completa todos los campos.";errEl.style.display="";bt.disabled=false;return}
-          api("usuarios",{method:"POST",body:{correo:correo,username:uname,grupos:grupos}}).then(function(){dlgCerrar();toast("Usuario creado. Se enviará un correo con la contraseña temporal.");viewUsuarios()},function(er){bt.disabled=false;errEl.textContent=er.message||"Error al crear el usuario.";errEl.style.display=""});
-        }
-      });
-    }
-    document.getElementById("usr-nuevo").addEventListener("click",function(){dlgAbrir(null)});
-    main.querySelectorAll("[data-usr-edit]").forEach(function(bt){
-      bt.addEventListener("click",function(){dlgAbrir(usrsData[+bt.dataset.usrEdit])});
-    });
-    main.querySelectorAll("[data-usr-del]").forEach(function(bt){
-      bt.addEventListener("click",function(){
-        if(!confirm("¿Eliminar el usuario "+bt.dataset.usrCorreo+"? Esta acción no se puede deshacer."))return;
-        api("usuarios/"+encodeURIComponent(bt.dataset.usrDel),{method:"DELETE"}).then(function(){toast("Usuario eliminado.");viewUsuarios()},function(er){toast(er.message||"Error al eliminar.")});
-      });
-    });
-  },function(e){main.innerHTML='<div class="top"><div><h1>Gestión de usuarios</h1></div></div><p class="empty">'+esc(e.message)+'<br><button class="btn sm" style="margin-top:10px" id="ru">Reintentar</button></p>';var rb=document.getElementById("ru");if(rb)rb.addEventListener("click",viewUsuarios)});
+  },function(e){main.innerHTML='<div class="top"><div><h1>Usuarios del panel</h1></div></div><p class="empty">'+esc(e.message)+'<br><button class="btn sm" style="margin-top:10px" id="ru">Reintentar</button></p>';var rb=document.getElementById("ru");if(rb)rb.addEventListener("click",viewUsuarios)});
 }
 
 /* ---------- estado ---------- */

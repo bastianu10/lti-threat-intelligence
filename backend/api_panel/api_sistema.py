@@ -6,6 +6,11 @@ API de sistema del panel (Lambda FUERA de la red de la base: habla con la API de
   PUT  /api/sistema/configuracion guarda y APLICA: reglas de EventBridge y temporizador del CMDB   (solo grupo admin)
   POST /api/sistema/probar-slack  manda un mensaje de prueba a Slack (solo grupo admin)
   POST /api/sistema/ejecutar      inicia el flujo ahora: {"fuente": "nvd" | "epss" | "osv" | "todas"} (solo grupo admin)
+  GET  /api/sistema/usuarios      lista (solo lectura) los usuarios del panel y sus grupos          (solo grupo admin)
+
+Las altas, cambios de grupo y bajas de usuarios NO se hacen aqui: las realiza un administrador por el
+procedimiento documentado (queda en CloudTrail). Por eso esta Lambda solo tiene permisos de LECTURA sobre
+el pool de Cognito.
 
 La configuracion vive en un parametro de SSM (/lti/configuracion). Cada fuente tiene su regla de EventBridge; la regla
 inicia el mismo flujo con una bandera que dice que fuente descargar.
@@ -19,6 +24,8 @@ import boto3
 
 ssm, ev, sf = boto3.client("ssm"), boto3.client("events"), boto3.client("stepfunctions")
 lam = boto3.client("lambda")
+cog = boto3.client("cognito-idp")
+USER_POOL_ID = os.environ.get("USER_POOL_ID", "")
 SLACK_ARN = os.environ.get("SLACK_ARN", "")
 PARAM = os.environ["PARAM_CONFIG"]
 FLUJO = os.environ["FLUJO_ARN"]
@@ -175,6 +182,49 @@ def ejecutar(cuerpo):
     return {"iniciada": r["startDate"], "fuente": f}
 
 
+def usuarios():
+    """Lista de solo lectura de los usuarios del panel con sus grupos. Usa solo APIs de lectura de Cognito
+    (list_groups, list_users_in_group, list_users). Las escrituras no se hacen desde el panel."""
+    if not USER_POOL_ID:
+        raise ValueError("No hay un grupo de usuarios configurado")
+
+    def _paginar(fn, clave_tok, clave_lista, **kw):
+        tok = None
+        while True:
+            if tok:
+                kw[clave_tok] = tok
+            r = fn(UserPoolId=USER_POOL_ID, Limit=60, **kw)
+            for x in r.get(clave_lista, []):
+                yield x
+            tok = r.get(clave_tok)
+            if not tok:
+                break
+
+    # grupos reales del pool (no se asumen nombres fijos)
+    grupos = [g["GroupName"] for g in _paginar(cog.list_groups, "NextToken", "Groups")]
+    # usuario -> grupos a los que pertenece
+    grupos_de = {}
+    for g in grupos:
+        for u in _paginar(cog.list_users_in_group, "NextToken", "Users", GroupName=g):
+            grupos_de.setdefault(u["Username"], []).append(g)
+
+    items = []
+    for u in _paginar(cog.list_users, "PaginationToken", "Users"):
+        attrs = {a["Name"]: a["Value"] for a in u.get("Attributes", [])}
+        items.append({
+            "username": u["Username"],
+            "correo": attrs.get("email", u["Username"]),
+            "grupos": grupos_de.get(u["Username"], []),
+            "habilitado": u.get("Enabled", True),
+            "estado": u.get("UserStatus", ""),
+            # MFAOptions es lo unico que trae list_users; el MFA por app (TOTP) no aparece aqui -> se informa como desconocido
+            "mfa": bool(u.get("MFAOptions")),
+            "creado": u.get("UserCreateDate"),
+        })
+    items.sort(key=lambda x: x["correo"])
+    return {"items": items}
+
+
 def probar_slack():
     if not SLACK_ARN:
         raise ValueError("No hay una Lambda de Slack configurada")
@@ -200,6 +250,10 @@ def handler(event, context):
             return _resp(200, ejecuciones())
         if ruta == "configuracion" and metodo == "GET":
             return _resp(200, leer_config())
+        if ruta == "usuarios" and metodo == "GET":        # lectura, pero solo para admin
+            if not _es_admin(event):
+                return _resp(403, {"error": "Esta seccion es solo para administradores"})
+            return _resp(200, usuarios())
         if metodo in ("PUT", "POST") and not _es_admin(event):
             return _resp(403, {"error": "Esta accion es solo para administradores"})
         cuerpo = json.loads(event.get("body") or "{}")
