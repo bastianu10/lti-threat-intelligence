@@ -10,7 +10,7 @@ Rutas (API Gateway HTTP, con Cognito delante):
   GET /api/cobertura          cobertura del CMDB por tipo de recurso
   GET /api/por-criticidad     hallazgos abiertos por criticidad del activo
   GET /api/ambiguos           casos que el cruce determinista no pudo decidir (aun no se guardan)
-  GET /api/reporte-semanal    reporte ejecutivo de los ultimos 7 dias (postura, plazos, KEV, agente)
+  GET /api/reporte-semanal    resumen semanal de los ultimos 7 dias (postura, plazos, KEV, agente)
   GET /api/asesoria?hallazgo=<uuid>  asesoria del agente (no vinculante) para un hallazgo del tenant
 """
 import datetime
@@ -290,7 +290,7 @@ def asesoria(con, p):
     return {"disponible": False, "motivo": "El agente no ha asesorado este hallazgo en las corridas recientes"}
 
 
-# ---------------------------------------------------------------- reporte ejecutivo semanal (solo lectura)
+# ---------------------------------------------------------------- resumen semanal (solo lectura)
 # Una pagina para direccion: postura, tendencia, plazos, explotacion activa, movimiento, riesgo por proceso de
 # negocio (del agente) y decisiones pendientes. Mismos numeros que el panel (lista oficial con RLS). El analisis
 # del agente se lee del prefijo FIJO agente/<tenant>/ (lo arma el servidor), se valida documento por documento y
