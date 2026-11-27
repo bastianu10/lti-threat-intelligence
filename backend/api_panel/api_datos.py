@@ -511,8 +511,14 @@ def _cog():
 def _grupos_caller(event):
     try:
         raw = event["requestContext"]["authorizer"]["jwt"]["claims"].get("cognito:groups") or ""
-        return set(raw.replace(",", " ").split()) if isinstance(raw, str) else set(raw)
-    except (KeyError, TypeError):
+        if isinstance(raw, list):
+            return set(raw)
+        s = raw.strip()
+        # API Gateway HTTP v2.0 serializa el array de Cognito como JSON: '["admin","analista"]'
+        if s.startswith("["):
+            return set(json.loads(s))
+        return set(s.replace(",", " ").split()) if s else set()
+    except (KeyError, TypeError, ValueError):
         return set()
 
 

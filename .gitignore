@@ -8,5 +8,6 @@ auditoria-aws-*
 paquetes/*
 !paquetes/lti-nucleo-v11.zip
 !paquetes/lti-nucleo-v12.zip
+!paquetes/lti-nucleo-v13.zip
 respaldo/
 /plantilla-aws.yaml
