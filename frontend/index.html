@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <!-- F-4: CSP estricta. Si cambias el script en linea, recalcula su sha256 (scripts/csp_hash.py). -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-h9t0Bf5fO4nv6CI1+y77NJVt0VIv2/UNHk4Ar4/fcAo='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self' https://cognito-idp.us-east-2.amazonaws.com; img-src 'self' data:; manifest-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'; upgrade-insecure-requests">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-5QcJQfcU+kP7YuMsd89ZvdG+2lSBCYOrSrYDEWM9rIk='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self' https://cognito-idp.us-east-2.amazonaws.com; img-src 'self' data:; manifest-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'; upgrade-insecure-requests">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Lyft Threat Intelligence</title>
 <meta name="color-scheme" content="light dark">
@@ -250,8 +250,7 @@ body.sinsesion .main{overflow-x:clip;padding:0;min-height:100vh;display:grid;pla
 .usrs-tbl td:last-child{white-space:nowrap}
 .grp-pill{display:inline-block;font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;margin:1px 2px}
 .grp-pill.admin{background:var(--p1);color:#fff}
-.grp-pill.analista{background:var(--p2);color:#fff}
-.grp-pill.lector,.grp-pill.lectura{background:var(--soft);color:var(--fg);border:1px solid var(--line)}
+.grp-pill.lectura{background:var(--soft);color:var(--fg);border:1px solid var(--line)}
 
 /* ---------- resumen semanal ---------- */
 .rep{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px 26px;max-width:1040px}
@@ -622,7 +621,9 @@ function viewReporte(){
 function esAdmin(){return !!(AUTH&&(AUTH.grupos||[]).indexOf("admin")>=0)}
 
 /* ---------- usuarios del panel (solo lectura, solo admin) ---------- */
-var GRP_LABEL={admin:"Administrador",lectura:"Lectura",analista:"Analista",lector:"Lector"};
+// Modelo de grupos del panel: solo admin (acceso total) y lectura (solo ve). grpPill muestra
+// el nombre crudo si apareciera cualquier otro grupo, sin romper la lista.
+var GRP_LABEL={admin:"Administrador",lectura:"Lectura"};
 function grpPill(g){return '<span class="grp-pill '+esc(g)+'">'+esc(GRP_LABEL[g]||g)+'</span>'}
 var USR_NOTA='Las altas, cambios de grupo y bajas los realiza un administrador mediante el procedimiento documentado, que queda registrado en CloudTrail.';
 function viewUsuarios(){
