@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <!-- F-4: CSP estricta. Si cambias el script en linea, recalcula su sha256 (scripts/csp_hash.py). -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-5QcJQfcU+kP7YuMsd89ZvdG+2lSBCYOrSrYDEWM9rIk='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self' https://cognito-idp.us-east-2.amazonaws.com; img-src 'self' data:; manifest-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'; upgrade-insecure-requests">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-wN/o35+yDfD59KS49JXZvTuaYjlwqaOpyIDxy5nCtxk='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self' https://cognito-idp.us-east-2.amazonaws.com; img-src 'self' data:; manifest-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'; upgrade-insecure-requests">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Lyft Threat Intelligence</title>
 <meta name="color-scheme" content="light dark">
@@ -251,6 +251,20 @@ body.sinsesion .main{overflow-x:clip;padding:0;min-height:100vh;display:grid;pla
 .grp-pill{display:inline-block;font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;margin:1px 2px}
 .grp-pill.admin{background:var(--p1);color:#fff}
 .grp-pill.lectura{background:var(--soft);color:var(--fg);border:1px solid var(--line)}
+/* ---------- bandeja HITL ---------- */
+.band-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:18px}
+.band-card{display:flex;flex-direction:column;gap:2px;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--panel)}
+.band-card.band-urg{border-color:var(--warn);background:var(--warn-bg)}
+.band-n{font-size:22px;font-weight:700;line-height:1}
+.band-e{font-size:12px;color:var(--muted)}
+.band-h{font-size:14px;margin:20px 0 10px}
+.band-tl{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.band-tl>li{border:1px solid var(--line);border-left:3px solid var(--p2);border-radius:10px;padding:10px 12px}
+.band-tl-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.band-arr{color:var(--muted)}
+.band-tl-meta{margin-left:auto;font-size:12px;color:var(--muted)}
+.band-just{margin:6px 0 0;font-size:13px}
+.band-hid{margin:4px 0 0;font-size:11px;color:var(--muted)}
 
 /* ---------- resumen semanal ---------- */
 .rep{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px 26px;max-width:1040px}
@@ -321,6 +335,7 @@ body.sinsesion .main{overflow-x:clip;padding:0;min-height:100vh;display:grid;pla
     <nav class="nav" aria-label="Principal">
       <a href="#panel" id="nav-panel"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>Panel</a>
       <a href="#reporte" id="nav-rep"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9Z"/><path d="M14 3v6h6"/><path d="M8 17v-3M12 17v-6M16 17v-2"/></svg>Resumen semanal</a>
+      <a href="#bandeja" id="nav-band"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5.5 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.5-6.5A2 2 0 0 0 16.8 4H7.2a2 2 0 0 0-1.7 1.5Z"/></svg>Bandeja</a>
       <a href="#configuracion" id="nav-conf"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg>Configuración</a>
       <a href="#usuarios" id="nav-usr" style="display:none"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7" r="4"/><path d="M2 21c0-4 3-7 7-7h1M18 21v-5M15.5 18.5h5"/></svg>Usuarios</a>
     </nav>
@@ -432,6 +447,21 @@ MOCK["sistema/usuarios"]={items:[
   {username:"diana.lopez",correo:"diana.lopez@lyft.example",grupos:["lectura"],habilitado:true,estado:"FORCE_CHANGE_PASSWORD",mfa:false,creado:"2026-10-02T09:00:00Z"},
   {username:"esteban.mora",correo:"esteban.mora@lyft.example",grupos:["lectura"],habilitado:false,estado:"CONFIRMED",mfa:false,creado:"2026-10-20T11:00:00Z"}
 ]};
+(function(){var f=function(d){return new Date(Date.now()-d*864e5).toISOString()};
+MOCK["bandeja"]={estados_orden:["pendiente_aprobacion_dueno","confirmado","en_remediacion","remediado","falso_positivo","riesgo_aceptado"],
+  por_estado:{pendiente_aprobacion_dueno:4,confirmado:1,en_remediacion:2,remediado:3,falso_positivo:1,riesgo_aceptado:1},
+  items:[
+    {id:"11111111-1111-1111-1111-111111111101",cve:"CVE-2026-31842",activo_codigo:"envoy-gateway",activo:"Envoy API Gateway",criticidad:"critico",ambiente:"produccion",estado:"pendiente_aprobacion_dueno",prioridad_final:1,en_kev:true,fecha_limite:f(-2),detectado_en:f(3),decidido_en:null,estado_anterior:null,decidido_por:null,justificacion:null},
+    {id:"11111111-1111-1111-1111-111111111102",cve:"CVE-2026-29107",activo_codigo:"kubernetes-prod",activo:"Clúster Kubernetes",criticidad:"critico",ambiente:"produccion",estado:"en_remediacion",prioridad_final:1,en_kev:true,fecha_limite:f(-5),detectado_en:f(9),decidido_en:f(2),estado_anterior:"confirmado",decidido_por:"Ana García",justificacion:"Parche en despliegue progresivo."},
+    {id:"11111111-1111-1111-1111-111111111103",cve:"CVE-2026-27733",activo_codigo:"postgres-pricing",activo:"PostgreSQL de precios",criticidad:"alto",ambiente:"produccion",estado:"confirmado",prioridad_final:2,en_kev:false,fecha_limite:f(-9),detectado_en:f(6),decidido_en:f(1),estado_anterior:"pendiente_aprobacion_dueno",decidido_por:"Ana García",justificacion:"Aplica; se agenda ventana."},
+    {id:"11111111-1111-1111-1111-111111111104",cve:"CVE-2026-28560",activo_codigo:"redis-sessions",activo:"Redis de sesiones",criticidad:"alto",ambiente:"produccion",estado:"pendiente_aprobacion_dueno",prioridad_final:2,en_kev:false,fecha_limite:f(-14),detectado_en:f(1),decidido_en:null,estado_anterior:null,decidido_por:null,justificacion:null},
+    {id:"11111111-1111-1111-1111-111111111105",cve:"CVE-2026-25871",activo_codigo:"grafana-ops",activo:"Grafana de operación",criticidad:"medio",ambiente:"interno",estado:"pendiente_aprobacion_dueno",prioridad_final:3,en_kev:false,fecha_limite:f(-20),detectado_en:f(2),decidido_en:null,estado_anterior:null,decidido_por:null,justificacion:null}],
+  decisiones:[
+    {hallazgo_id:"11111111-1111-1111-1111-111111111102",estado_anterior:"confirmado",estado_nuevo:"en_remediacion",decidido_en:f(2),justificacion:"Parche en despliegue progresivo.",vence_en:null,decidido_por:"Ana García"},
+    {hallazgo_id:"11111111-1111-1111-1111-111111111103",estado_anterior:"pendiente_aprobacion_dueno",estado_nuevo:"confirmado",decidido_en:f(1),justificacion:"Aplica; se agenda ventana.",vence_en:null,decidido_por:"Ana García"},
+    {hallazgo_id:"11111111-1111-1111-1111-111111111199",estado_anterior:"pendiente_aprobacion_dueno",estado_nuevo:"riesgo_aceptado",decidido_en:f(4),justificacion:"Expuesto solo en red interna; mitigación compensatoria.",vence_en:f(-120),decidido_por:"Carlos Ruiz"},
+    {hallazgo_id:"11111111-1111-1111-1111-111111111198",estado_anterior:"en_remediacion",estado_nuevo:"remediado",decidido_en:f(6),justificacion:"Verificado tras el parche.",vence_en:null,decidido_por:"Ana García"}]};
+})();
 MOCK["asesoria"]={disponible:true,vigente:true,corrida_id:"demo0000",generado_en:new Date(Date.now()-36e5).toISOString(),modelo:"modelo de ejemplo",confianza:0.5,
   motor:{prioridad_final:1,prioridad_base:1,piso:1,tipo:"investigacion",aplicabilidad:"candidate",version:"(ejemplo)"},
   explicacion:"Ejemplo: el motor asigna la prioridad más alta de investigación porque la vulnerabilidad figura en KEV y el activo está expuesto. Primero hay que confirmar que la versión instalada está afectada.",
@@ -642,6 +672,41 @@ function viewUsuarios(){
         '<td style="color:var(--muted);font-size:12.5px">'+esc(corta(u.creado))+'</td></tr>'}).join("")+
       '</tbody></table></div></div>';
   },function(e){main.innerHTML='<div class="top"><div><h1>Usuarios del panel</h1></div></div><p class="empty">'+esc(e.message)+'<br><button class="btn sm" style="margin-top:10px" id="ru">Reintentar</button></p>';var rb=document.getElementById("ru");if(rb)rb.addEventListener("click",viewUsuarios)});
+}
+
+/* ---------- bandeja human-in-the-loop (solo lectura) ---------- */
+var EST_CLS={pendiente_aprobacion_dueno:"st-warn",confirmado:"st-off",en_remediacion:"st-off",remediado:"st-ok",falso_positivo:"st-off",riesgo_aceptado:"st-off"};
+var BAND_NOTA='Las decisiones (confirmar, marcar falso positivo, aceptar riesgo o remediar) las registra el dueño autenticado por el procedimiento del flujo; el panel solo las consulta. Cada decisión queda en la bitácora inmutable de la base.';
+function prioPill(n){return n?'<span class="pill pr'+n+'">P'+n+'</span>':'<span class="pill st-off">Sin prioridad</span>'}
+function estPill(e){return '<span class="pill '+(EST_CLS[e]||"st-off")+'">'+esc(ESTADO[e]||e||"—")+'</span>'}
+function viewBandeja(){
+  main.innerHTML='<div class="top"><div><h1>Bandeja de decisiones</h1><p>Flujo de aprobación de hallazgos (solo lectura).</p></div>'+(DEMO?'<div class="acts"><span class="chip">Datos de ejemplo</span></div>':'')+'</div><p class="empty">Cargando…</p>';
+  api("bandeja").then(function(d){
+    var orden=d.estados_orden||[],pe=d.por_estado||{},items=d.items||[],decs=d.decisiones||[];
+    var resumen=orden.map(function(e){var n=pe[e]||0;return '<div class="band-card'+(e==="pendiente_aprobacion_dueno"&&n?" band-urg":"")+'"><span class="band-n">'+n+'</span><span class="band-e">'+esc(ESTADO[e]||e)+'</span></div>'}).join("");
+    var filas=items.length?items.map(function(h){
+      var plazo=h.fecha_limite?corta(h.fecha_limite):"—",venc=h.fecha_limite&&String(h.fecha_limite).slice(0,10)<new Date().toISOString().slice(0,10);
+      var dec=h.decidido_en?esc(h.decidido_por||"—")+' · '+corta(h.decidido_en):'<span style="color:var(--muted)">Sin decisiones</span>';
+      return '<tr><td>'+prioPill(h.prioridad_final)+'</td><td class="mono" style="font-size:12.5px">'+esc(h.cve)+(h.en_kev?' <span class="chip">KEV</span>':'')+'</td>'+
+        '<td>'+esc(h.activo||h.activo_codigo||"—")+'<br><span style="color:var(--muted);font-size:11.5px">'+esc(h.activo_codigo||"")+'</span></td>'+
+        '<td>'+estPill(h.estado)+'</td>'+
+        '<td'+(venc?' style="color:var(--bad)"':'')+'>'+plazo+'</td>'+
+        '<td style="font-size:12.5px">'+dec+'</td></tr>'}).join(""):
+      '<tr><td colspan="5" class="empty" style="padding:18px">No hay hallazgos abiertos.</td></tr>';
+    var bitacora=decs.length?decs.map(function(x){
+      return '<li><div class="band-tl-top">'+estPill(x.estado_anterior)+' <span class="band-arr">→</span> '+estPill(x.estado_nuevo)+
+        '<span class="band-tl-meta">'+esc(x.decidido_por||"—")+' · '+corta(x.decidido_en)+(x.vence_en?' · vence '+corta(x.vence_en):'')+'</span></div>'+
+        (x.justificacion?'<p class="band-just">'+esc(x.justificacion)+'</p>':'')+
+        '<p class="band-hid mono">'+esc(String(x.hallazgo_id).slice(0,8))+'</p></li>'}).join(""):
+      '<li class="empty">Aún no hay decisiones registradas.</li>';
+    main.innerHTML='<div class="top"><div><h1>Bandeja de decisiones</h1><p>Flujo de aprobación de hallazgos (solo lectura).</p></div>'+(DEMO?'<div class="acts"><span class="chip">Datos de ejemplo</span></div>':'')+'</div>'+
+      '<div style="max-width:1040px"><p class="usrs-nota">'+esc(BAND_NOTA)+'</p>'+
+      '<div class="band-cards">'+resumen+'</div>'+
+      '<h3 class="band-h">Hallazgos abiertos por estado</h3>'+
+      '<div class="usrs-tbl"><table><thead><tr><th>Prioridad</th><th>CVE</th><th>Activo</th><th>Estado</th><th>Plazo</th><th>Última decisión</th></tr></thead><tbody>'+filas+'</tbody></table></div>'+
+      '<h3 class="band-h">Bitácora de decisiones</h3><ul class="band-tl">'+bitacora+'</ul>'+
+      '</div>';
+  },function(e){main.innerHTML='<div class="top"><div><h1>Bandeja de decisiones</h1></div></div><p class="empty">'+esc(e.message)+'<br><button class="btn sm" style="margin-top:10px" id="rb">Reintentar</button></p>';var rb=document.getElementById("rb");if(rb)rb.addEventListener("click",viewBandeja)});
 }
 
 /* ---------- estado ---------- */
@@ -3409,11 +3474,13 @@ function route(){
   if(!CFG&&!DEMO){document.body.classList.remove("sinsesion");
     main.innerHTML='<div class="top"><div><h1>Sin configuración</h1><p>No se encontró <code>config.js</code> con <code>window.LTI_CONFIG</code>. Para usar datos de ejemplo añade <code>?demo</code> a la URL.</p></div></div>';return}
   $("#nav-panel").removeAttribute("aria-current");$("#nav-conf").removeAttribute("aria-current");$("#nav-rep").removeAttribute("aria-current");
+  var nb=$("#nav-band");if(nb)nb.removeAttribute("aria-current");
   var nu=$("#nav-usr");if(nu)nu.removeAttribute("aria-current");
   if(!DEMO&&(!AUTH||!AUTH.id)){pintaUsuario();return viewLogin()}
   document.body.classList.remove("sinsesion");pintaUsuario();
   var nu2=$("#nav-usr");if(nu2)nu2.style.display=esAdmin()?"":"none";
   if(h==="reporte"){$("#nav-rep").setAttribute("aria-current","page");editando=false;viewReporte()}
+  else if(h==="bandeja"){if(nb)nb.setAttribute("aria-current","page");editando=false;viewBandeja()}
   else if(h==="configuracion"){$("#nav-conf").setAttribute("aria-current","page");editando=false;viewConfig()}
   else if(h==="usuarios"){if(nu2)nu2.setAttribute("aria-current","page");editando=false;viewUsuarios()}
   else{$("#nav-panel").setAttribute("aria-current","page");viewPanel()}

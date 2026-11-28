@@ -10,6 +10,7 @@ Rutas (API Gateway HTTP, con Cognito delante):
   GET  /api/cobertura          cobertura del CMDB por tipo de recurso
   GET  /api/por-criticidad     hallazgos abiertos por criticidad del activo
   GET  /api/ambiguos           casos que el cruce determinista no pudo decidir (aun no se guardan)
+  GET  /api/bandeja            bandeja HITL de solo lectura: hallazgos por estado + bitacora de decisiones
   GET  /api/reporte-semanal    resumen semanal de los ultimos 7 dias (postura, plazos, KEV, agente)
   GET  /api/asesoria?hallazgo=<uuid>  asesoria del agente (no vinculante) para un hallazgo del tenant
 
@@ -202,6 +203,44 @@ def por_criticidad(con, _p):
 
 def ambiguos(_con, _p):
     return {"items": [], "nota": "El cruce todavia no guarda los casos ambiguos; los recibira el agente."}
+
+
+# Bandeja human-in-the-loop (P2.2): SOLO LECTURA. Muestra los hallazgos por estado del flujo de
+# decision y la bitacora inmutable (tabla decisiones, via v_decisiones_historial). El panel no escribe
+# decisiones: las registra el dueno autenticado por el flujo documentado (queda auditado en la base).
+ESTADOS_HITL = ("pendiente_aprobacion_dueno", "confirmado", "en_remediacion",
+                "remediado", "falso_positivo", "riesgo_aceptado")
+
+
+def bandeja(con, p):
+    limite = _entero(p.get("limite"), 150, 1, 400)
+    por_estado = {e: 0 for e in ESTADOS_HITL}
+    for f in _q(con, "SELECT estado, count(*) AS n FROM v_lista_oficial GROUP BY estado"):
+        if f["estado"] in por_estado:
+            por_estado[f["estado"]] = int(f["n"])
+    items = _q(con, """
+        SELECT v.hallazgo_id AS id, v.cve, v.activo_codigo, v.activo, v.criticidad, v.ambiente,
+               v.estado, v.prioridad_final, v.en_kev, v.fecha_limite, v.detectado_en,
+               d.decidido_en, d.estado_anterior, coalesce(u.nombre, d.servicio) AS decidido_por,
+               d.justificacion
+          FROM v_lista_oficial v
+          LEFT JOIN LATERAL (
+                SELECT dh.decidido_en, dh.estado_anterior, dh.usuario_id, dh.servicio, dh.justificacion
+                  FROM v_decisiones_historial dh
+                 WHERE dh.hallazgo_id = v.hallazgo_id
+                 ORDER BY dh.decidido_en DESC, dh.id DESC LIMIT 1) d ON TRUE
+          LEFT JOIN usuarios u ON u.id = d.usuario_id
+         WHERE NOT v.es_cerrado
+         ORDER BY v.prioridad_final NULLS LAST, v.puntaje_riesgo DESC NULLS LAST, v.detectado_en DESC
+         LIMIT CAST(:n AS integer)""", n=limite)
+    decisiones = _q(con, """
+        SELECT dh.hallazgo_id, dh.estado_anterior, dh.estado_nuevo, dh.decidido_en,
+               dh.justificacion, dh.vence_en, coalesce(u.nombre, dh.servicio) AS decidido_por
+          FROM v_decisiones_historial dh
+          LEFT JOIN usuarios u ON u.id = dh.usuario_id
+         ORDER BY dh.decidido_en DESC, dh.id DESC LIMIT 25""")
+    return {"estados_orden": list(ESTADOS_HITL), "por_estado": por_estado,
+            "items": items, "decisiones": decisiones}
 
 
 # ---------------------------------------------------------------- Asesoria del agente (solo lectura)
@@ -487,7 +526,7 @@ def reporte_semanal(con, _p):
 
 RUTAS = {"resumen": resumen, "tendencia": tendencia, "hallazgos": hallazgos, "recursos": recursos,
          "cobertura": cobertura, "por-criticidad": por_criticidad, "ambiguos": ambiguos,
-         "asesoria": asesoria, "reporte-semanal": reporte_semanal}
+         "asesoria": asesoria, "reporte-semanal": reporte_semanal, "bandeja": bandeja}
 
 
 NIVEL = {"critica": 1, "alta": 2, "media": 3, "baja": 4}
