@@ -545,7 +545,7 @@ def _motor_prioridad_de(bucket, indice, hid):
 def transiciones(con, p):
     tope = _entero(p.get("tope"), 80, 1, 200)
     filas = _q(con, """
-        SELECT v.hallazgo_id AS id, v.prioridad_final
+        SELECT v.hallazgo_id AS id, v.prioridad_final, v.cve, v.activo_codigo, v.activo, v.estado, v.en_kev
           FROM v_lista_oficial v WHERE NOT v.es_cerrado AND NOT v.no_aplica
          ORDER BY v.prioridad_final NULLS LAST, v.puntaje_riesgo DESC NULLS LAST
          LIMIT CAST(:n AS integer)""", n=tope)
@@ -563,19 +563,24 @@ def transiciones(con, p):
                     motor_por[str(f["id"])] = pm
         except Exception as e:                       # la matriz sale igual, marcando todo 'no comparable'
             print("transiciones: agente no disponible", type(e).__name__)
+    items = []                                       # un registro por hallazgo, para el drill-down por celda
     for f in filas:
         po, pm = f["prioridad_final"], motor_por.get(str(f["id"]))
         if po is None or pm is None:
             no_comp += 1
-            continue
-        matriz[po][pm] += 1
-        comparables += 1
-        escal += pm < po          # número menor = más urgente
-        reduc += pm > po
-        igual += pm == po
+        else:
+            matriz[po][pm] += 1
+            comparables += 1
+            escal += pm < po          # número menor = más urgente
+            reduc += pm > po
+            igual += pm == po
+        items.append({"id": str(f["id"]), "cve": f["cve"], "activo_codigo": f["activo_codigo"],
+                      "activo": f["activo"], "estado": f["estado"], "en_kev": f["en_kev"],
+                      "oficial": po, "motor": pm})
     return {"total": total, "comparables": comparables, "no_comparable": no_comp,
             "escalaciones": int(escal), "reducciones": int(reduc), "sin_cambio": int(igual),
             "matriz": [{"oficial": a, "motor": b, "n": matriz[a][b]} for a in (1, 2, 3, 4) for b in (1, 2, 3, 4)],
+            "items": items,
             "nota": "Cambio de clasificación oficial→motor sombra; no implica remediación. El motor opera en modo sombra."}
 
 

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <!-- F-4: CSP estricta. Si cambias el script en linea, recalcula su sha256 (scripts/csp_hash.py). -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-uilx5xnlQZ7yJG750mDecay1dCxcu1cgaw0N9fwnd+c='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self' https://cognito-idp.us-east-2.amazonaws.com; img-src 'self' data:; manifest-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'; upgrade-insecure-requests">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-9q1cI+bPQdFibaf+Sle05KWPNn13BGcLkdmQD5fm3V0='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self' https://cognito-idp.us-east-2.amazonaws.com; img-src 'self' data:; manifest-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'; upgrade-insecure-requests">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Lyft Threat Intelligence</title>
 <meta name="color-scheme" content="light dark">
@@ -286,6 +286,13 @@ body.sinsesion .main{overflow-x:clip;padding:0;min-height:100vh;display:grid;pla
 .tran-k.tran-cero{background:var(--soft2);color:var(--muted)}
 .tran-k.tran-esc,.tran-k.tran-eq,.tran-k.tran-red{border:none}
 .tran-leg{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-1px;border:1px solid var(--line)}
+.tran-click{cursor:pointer}
+.tran-click:hover,.tran-click:focus-visible,.tran-click-nc:hover,.tran-click-nc:focus-visible{outline:2px solid var(--p2);outline-offset:-2px}
+.tran-k.tran-click-nc{cursor:pointer}
+.tran-cel.tran-on,.tran-k.tran-on{outline:2px solid var(--fg);outline-offset:-2px}
+#tran-det{margin-top:18px}
+.tran-row{cursor:pointer}
+.tran-row:hover,.tran-row:focus-visible{background:var(--soft)}
 
 /* ---------- resumen semanal ---------- */
 .rep{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px 26px;max-width:1040px}
@@ -489,7 +496,18 @@ MOCK["transiciones"]={total:10,comparables:10,no_comparable:0,escalaciones:1,red
   matriz:[{oficial:1,motor:1,n:3},{oficial:1,motor:2,n:0},{oficial:1,motor:3,n:0},{oficial:1,motor:4,n:0},
     {oficial:2,motor:1,n:0},{oficial:2,motor:2,n:0},{oficial:2,motor:3,n:2},{oficial:2,motor:4,n:0},
     {oficial:3,motor:1,n:0},{oficial:3,motor:2,n:0},{oficial:3,motor:3,n:4},{oficial:3,motor:4,n:0},
-    {oficial:4,motor:1,n:0},{oficial:4,motor:2,n:0},{oficial:4,motor:3,n:1},{oficial:4,motor:4,n:0}]};
+    {oficial:4,motor:1,n:0},{oficial:4,motor:2,n:0},{oficial:4,motor:3,n:1},{oficial:4,motor:4,n:0}],
+  items:[
+    {id:"t1",cve:"CVE-2026-31842",activo_codigo:"envoy-gateway",activo:"Envoy API Gateway",estado:"pendiente_aprobacion_dueno",en_kev:true,oficial:1,motor:1},
+    {id:"t2",cve:"CVE-2026-30415",activo_codigo:"nginx-edge",activo:"NGINX edge",estado:"confirmado",en_kev:false,oficial:1,motor:1},
+    {id:"t3",cve:"CVE-2026-29107",activo_codigo:"kubernetes-prod",activo:"Clúster Kubernetes",estado:"en_remediacion",en_kev:true,oficial:1,motor:1},
+    {id:"t4",cve:"CVE-2026-27733",activo_codigo:"postgres-pricing",activo:"PostgreSQL de precios",estado:"confirmado",en_kev:false,oficial:2,motor:3},
+    {id:"t5",cve:"CVE-2026-28560",activo_codigo:"redis-sessions",activo:"Redis de sesiones",estado:"pendiente_aprobacion_dueno",en_kev:false,oficial:2,motor:3},
+    {id:"t6",cve:"CVE-2026-25871",activo_codigo:"grafana-ops",activo:"Grafana de operación",estado:"pendiente_aprobacion_dueno",en_kev:false,oficial:3,motor:3},
+    {id:"t7",cve:"CVE-2026-24390",activo_codigo:"kafka-events",activo:"Kafka de eventos",estado:"pendiente_aprobacion_dueno",en_kev:false,oficial:3,motor:3},
+    {id:"t8",cve:"CVE-2026-23118",activo_codigo:"vault-secrets",activo:"Vault de secretos",estado:"confirmado",en_kev:false,oficial:3,motor:3},
+    {id:"t9",cve:"CVE-2026-22044",activo_codigo:"elasticsearch-logs",activo:"Elasticsearch de logs",estado:"pendiente_aprobacion_dueno",en_kev:false,oficial:3,motor:3},
+    {id:"t10",cve:"CVE-2026-21007",activo_codigo:"minio-backups",activo:"MinIO de respaldos",estado:"pendiente_aprobacion_dueno",en_kev:false,oficial:4,motor:3}]};
 MOCK["asesoria"]={disponible:true,vigente:true,corrida_id:"demo0000",generado_en:new Date(Date.now()-36e5).toISOString(),modelo:"modelo de ejemplo",confianza:0.5,
   motor:{prioridad_final:1,prioridad_base:1,piso:1,tipo:"investigacion",aplicabilidad:"candidate",version:"(ejemplo)"},
   explicacion:"Ejemplo: el motor asigna la prioridad más alta de investigación porque la vulnerabilidad figura en KEV y el activo está expuesto. Primero hay que confirmar que la versión instalada está afectada.",
@@ -752,7 +770,7 @@ var TRAN_NOTA='Clasificación oficial (panel) frente a la del motor contextual, 
 function viewTransiciones(){
   main.innerHTML='<div class="top"><div><h1>Matriz de transición</h1><p>Prioridad oficial → motor contextual (sombra).</p></div>'+(DEMO?'<div class="acts"><span class="chip">Datos de ejemplo</span></div>':'')+'</div><p class="empty">Cargando…</p>';
   api("transiciones").then(function(d){
-    var m={};(d.matriz||[]).forEach(function(c){m[c.oficial+"-"+c.motor]=c.n});
+    var m={},items=d.items||[];(d.matriz||[]).forEach(function(c){m[c.oficial+"-"+c.motor]=c.n});
     function colTotal(b){return [1,2,3,4].reduce(function(s,a){return s+(m[a+"-"+b]||0)},0)}
     function rowTotal(a){return [1,2,3,4].reduce(function(s,b){return s+(m[a+"-"+b]||0)},0)}
     var celdas="";
@@ -760,13 +778,13 @@ function viewTransiciones(){
       celdas+='<tr><th class="tran-rh"><span class="pill pr'+a+'">P'+a+'</span></th>';
       [1,2,3,4].forEach(function(b){
         var n=m[a+"-"+b]||0,cls=b<a?"tran-esc":b>a?"tran-red":"tran-eq";
-        celdas+='<td class="tran-cel '+(n?cls:"tran-cero")+'"'+(n?' title="Oficial P'+a+' → Motor P'+b+': '+n+'"':'')+'>'+(n||'·')+'</td>';
+        celdas+='<td class="tran-cel '+(n?cls+" tran-click":"tran-cero")+'"'+(n?' data-of="'+a+'" data-mo="'+b+'" role="button" tabindex="0" title="Oficial P'+a+' → Motor P'+b+': '+n+'"':'')+'>'+(n||'·')+'</td>';
       });
       celdas+='<td class="tran-tot">'+rowTotal(a)+'</td></tr>';
     });
     var pie='<tr><th class="tran-rh">Σ motor</th>'+[1,2,3,4].map(function(b){return '<td class="tran-tot">'+colTotal(b)+'</td>'}).join("")+'<td class="tran-tot">'+(d.comparables||0)+'</td></tr>';
     var resumen=[["Escalaciones",d.escalaciones,"tran-esc"],["Sin cambio",d.sin_cambio,"tran-eq"],["Reducciones",d.reducciones,"tran-red"],["No comparable",d.no_comparable,"tran-cero"]]
-      .map(function(x){return '<div class="tran-k '+x[2]+'"><span class="tran-kn">'+(x[1]||0)+'</span><span class="tran-kl">'+x[0]+'</span></div>'}).join("");
+      .map(function(x){var nc=x[0]==="No comparable"&&x[1];return '<div class="tran-k '+x[2]+(nc?" tran-click-nc":"")+'"'+(nc?' role="button" tabindex="0"':'')+'><span class="tran-kn">'+(x[1]||0)+'</span><span class="tran-kl">'+x[0]+'</span></div>'}).join("");
     main.innerHTML='<div class="top"><div><h1>Matriz de transición</h1><p>Prioridad oficial → motor contextual (sombra).</p></div>'+(DEMO?'<div class="acts"><span class="chip">Datos de ejemplo</span></div>':'')+'</div>'+
       '<div style="max-width:720px"><p class="usrs-nota">'+esc(TRAN_NOTA)+'</p>'+
       '<div class="tran-ks">'+resumen+'</div>'+
@@ -775,7 +793,31 @@ function viewTransiciones(){
       '<tr><th class="tran-rh">Oficial ↓</th><th><span class="pill pr1">P1</span></th><th><span class="pill pr2">P2</span></th><th><span class="pill pr3">P3</span></th><th><span class="pill pr4">P4</span></th><th class="tran-tot">Σ</th></tr></thead>'+
       '<tbody>'+celdas+pie+'</tbody></table></div>'+
       '<p style="font-size:12px;color:var(--muted);margin-top:10px"><span class="tran-leg tran-esc"></span> escaló (más urgente) &nbsp; <span class="tran-leg tran-eq"></span> sin cambio &nbsp; <span class="tran-leg tran-red"></span> bajó (menos urgente)</p>'+
+      '<div id="tran-det"><p class="empty" style="padding:14px">Elige una celda (o «No comparable») para ver sus hallazgos.</p></div>'+
       '</div>';
+    function pintarDet(of,mo,nc){
+      var det=document.getElementById("tran-det");if(!det)return;
+      var lista=nc?items.filter(function(it){return it.oficial==null||it.motor==null}):items.filter(function(it){return it.oficial===of&&it.motor===mo});
+      var tit=nc?'No comparables ('+lista.length+')':'Oficial P'+of+' → Motor P'+mo+' ('+lista.length+')';
+      if(!lista.length){det.innerHTML='<h3 class="band-h">'+esc(tit)+'</h3><p class="empty">Sin hallazgos en esta celda.</p>';return}
+      det.innerHTML='<h3 class="band-h">'+esc(tit)+'</h3><div class="usrs-tbl"><table><thead><tr><th>CVE</th><th>Activo</th><th>Transición</th><th>Estado</th></tr></thead><tbody>'+
+        lista.map(function(it,i){var tr=(it.oficial!=null&&it.motor!=null)?('P'+it.oficial+'→P'+it.motor):(it.oficial!=null?('P'+it.oficial+'→—'):'—→P'+it.motor);
+          return '<tr class="tran-row" data-i="'+i+'" tabindex="0" role="button" title="Abrir asesoría"><td class="mono" style="font-size:12.5px">'+esc(it.cve)+(it.en_kev?' <span class="chip">KEV</span>':'')+'</td>'+
+            '<td>'+esc(it.activo||it.activo_codigo||"—")+'</td><td class="mono">'+tr+'</td><td>'+estPill(it.estado)+'</td></tr>'}).join("")+
+        '</tbody></table></div><p style="font-size:12px;color:var(--muted);margin-top:6px">Haz clic en un hallazgo para ver su asesoría y las 4 etapas.</p>';
+      det.querySelectorAll(".tran-row").forEach(function(row){var it=lista[+row.dataset.i];
+        function abrir(){abrirAsesoria({id:it.id,cve:it.cve,activo_codigo:it.activo_codigo,prioridad_final:it.oficial,estado:it.estado},row)}
+        row.addEventListener("click",abrir);row.addEventListener("keydown",function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();abrir()}});
+      });
+    }
+    main.querySelectorAll(".tran-click").forEach(function(c){
+      function sel(){main.querySelectorAll(".tran-click,.tran-click-nc").forEach(function(x){x.classList.remove("tran-on")});c.classList.add("tran-on");pintarDet(+c.dataset.of,+c.dataset.mo,false)}
+      c.addEventListener("click",sel);c.addEventListener("keydown",function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();sel()}});
+    });
+    main.querySelectorAll(".tran-click-nc").forEach(function(c){
+      function sel(){main.querySelectorAll(".tran-click,.tran-click-nc").forEach(function(x){x.classList.remove("tran-on")});c.classList.add("tran-on");pintarDet(null,null,true)}
+      c.addEventListener("click",sel);c.addEventListener("keydown",function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();sel()}});
+    });
   },function(e){main.innerHTML='<div class="top"><div><h1>Matriz de transición</h1></div></div><p class="empty">'+esc(e.message)+'<br><button class="btn sm" style="margin-top:10px" id="rt">Reintentar</button></p>';var rt=document.getElementById("rt");if(rt)rt.addEventListener("click",viewTransiciones)});
 }
 
