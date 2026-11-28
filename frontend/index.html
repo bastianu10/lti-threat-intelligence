@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <!-- F-4: CSP estricta. Si cambias el script en linea, recalcula su sha256 (scripts/csp_hash.py). -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-a+YBodWlJdFLcvYFk8SJnvpOVCgBkANl+1V71mx1Jg0='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self' https://cognito-idp.us-east-2.amazonaws.com; img-src 'self' data:; manifest-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'; upgrade-insecure-requests">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-uilx5xnlQZ7yJG750mDecay1dCxcu1cgaw0N9fwnd+c='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self' https://cognito-idp.us-east-2.amazonaws.com; img-src 'self' data:; manifest-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'; upgrade-insecure-requests">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Lyft Threat Intelligence</title>
 <meta name="color-scheme" content="light dark">
@@ -229,6 +229,9 @@ body.sinsesion .main{overflow-x:clip;padding:0;min-height:100vh;display:grid;pla
 .ase-et .et-t{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:600}
 .ase-et .et-v{font-size:13px;min-height:24px}
 .ase-et .et-d{font-size:11.5px;color:var(--muted);line-height:1.35}
+.ase-et .et-m{display:grid;grid-template-columns:auto 1fr;gap:2px 8px;margin-top:5px;padding-top:6px;border-top:1px dashed var(--line);font-size:10.5px}
+.ase-et .et-mk{color:var(--muted);text-transform:uppercase;letter-spacing:.03em;white-space:nowrap}
+.ase-et .et-mv{color:var(--fg);word-break:break-word;font-variant-numeric:tabular-nums}
 .ase-et>div.et-hip{border-style:dashed;background:var(--soft2)}
 @media(max-width:420px){.ase-et{grid-template-columns:1fr}}
 .ase-demo{margin-top:8px;font-size:12.5px;color:var(--muted)}
@@ -569,17 +572,27 @@ function aseHtml(a,fila){
   /* Evolucion de la prioridad en cuatro etapas (acordado con el equipo del motor, 24-nov). Reglas: lo oficial, lo sombra,
      lo hipotetico y lo decidido se distinguen; no hay prioridad simulada si la aplicabilidad esta condicionada; el agente
      nunca fija una prioridad; el ejemplo sintetico nunca se presenta como aprobacion real. */
-  function etapa(titulo,valor,est,det,hip){return '<div'+(hip?' class="et-hip"':'')+'><span class="et-t">'+titulo+'</span><span class="et-v">'+valor+'</span>'+
-    '<span><span class="pill '+est[1]+'">'+est[0]+'</span></span><span class="et-d">'+det+'</span></div>'}
+  function etMeta(meta){var r=(meta||[]).filter(function(x){return x[1]!=null&&x[1]!==""}).map(function(x){
+      return '<span class="et-mk">'+esc(x[0])+'</span><span class="et-mv">'+esc(x[1])+'</span>'}).join("");
+    return r?'<span class="et-m">'+r+'</span>':''}
+  function etapa(titulo,valor,est,det,meta,hip){return '<div'+(hip?' class="et-hip"':'')+'><span class="et-t">'+titulo+'</span><span class="et-v">'+valor+'</span>'+
+    '<span><span class="pill '+est[1]+'">'+est[0]+'</span></span><span class="et-d">'+det+'</span>'+etMeta(meta)+'</div>'}
   var cond=pd.condicion==="condicionada_a_confirmar_aplicabilidad";
+  var corr=a.corrida_id?String(a.corrida_id).slice(0,8):null,fecha=a.generado_en?corta(a.generado_en):null,
+      conf=(typeof a.confianza==="number")?Math.round(a.confianza*100)+"%":null,
+      base=(m.prioridad_base!=null&&m.piso!=null)?("P"+m.prioridad_base+" → piso P"+m.piso):null;
   var h='<section class="ase-evol" aria-label="Evolución de la prioridad"><div class="ase-et">'+
-    etapa("1 · Cruce",pc?'<span class="pill '+pc[1]+'">'+pc[0]+'</span>':'—',["Oficial","st-ok"],"Prioridad vigente en el panel.")+
+    etapa("1 · Cruce",pc?'<span class="pill '+pc[1]+'">'+pc[0]+'</span>':'—',["Oficial","st-ok"],"Prioridad vigente en el panel.",
+      [["Fuente","Cruce determinista · RDS"],["Estado",ESTADO[fila.estado]||fila.estado]])+
     etapa("2 · Motor contextual",pm?'<span class="pill '+pm[1]+'">P'+m.prioridad_final+' · '+pm[0]+'</span>':'—',["Sombra","st-warn"],
-      "Referencia "+esc(m.version||"")+(m.tipo==="investigacion"?"; de investigación":"")+". No reemplaza la oficial.")+
+      "Referencia "+esc(m.version||"")+(m.tipo==="investigacion"?"; de investigación":"")+". No reemplaza la oficial.",
+      [["Fuente","Motor contextual · S3"],["Fecha",fecha],["Corrida",corr],["Reglas",m.version],["Base",base],["Aplicabilidad",m.aplicabilidad]])+
     etapa("3 · Con la valoración del agente",'<span class="ase-m">'+(cond?"No se calcula":"Sin escenario calculado")+'</span>',
       cond?["Condicionado","st-warn"]:["Sin escenario","st-off"],
-      (cond?"Primero hay que confirmar que la vulnerabilidad aplica. ":"")+"Propuesta: P "+esc(pd.probabilidad==null?"—":pd.probabilidad)+" × I "+esc(pd.impacto==null?"—":pd.impacto)+"; no vinculante.",true)+
-    etapa("4 · Decisión del dueño",'<span class="ase-m">—</span>',["Pendiente","st-off"],"La prioridad oficial solo cambia con una aprobación autenticada y el recálculo del motor.")+
+      (cond?"Primero hay que confirmar que la vulnerabilidad aplica. ":"")+"Propuesta: P "+esc(pd.probabilidad==null?"—":pd.probabilidad)+" × I "+esc(pd.impacto==null?"—":pd.impacto)+"; no vinculante.",
+      [["Fuente","Bedrock a2 + guard v2.1"],["Fecha",fecha],["Corrida",corr],["Modelo",a.modelo],["Confianza",conf]],true)+
+    etapa("4 · Decisión del dueño",'<span class="ase-m">—</span>',["Pendiente","st-off"],"La prioridad oficial solo cambia con una aprobación autenticada y el recálculo del motor.",
+      [["Fuente","Flujo de decisión (HITL)"],["Estado","Pendiente"]])+
     '</div>'+
     (m.tipo==="investigacion"?'<p class="ase-nota">Prioridad de <b>investigación</b>: primero hay que confirmar que la vulnerabilidad aplica; después, remediar.</p>':'')+
     (pc&&pm&&fila.prioridad_final!==m.prioridad_final?'<p class="ase-nota">El cruce y el motor difieren porque el motor contextual aún funciona en modo sombra: su valor es una referencia y no reemplaza la prioridad del panel.</p>':'')+
