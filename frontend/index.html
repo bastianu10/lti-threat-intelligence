@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <!-- F-4: CSP estricta. Si cambias el script en linea, recalcula su sha256 (scripts/csp_hash.py). -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-wN/o35+yDfD59KS49JXZvTuaYjlwqaOpyIDxy5nCtxk='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self' https://cognito-idp.us-east-2.amazonaws.com; img-src 'self' data:; manifest-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'; upgrade-insecure-requests">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-a+YBodWlJdFLcvYFk8SJnvpOVCgBkANl+1V71mx1Jg0='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self' https://cognito-idp.us-east-2.amazonaws.com; img-src 'self' data:; manifest-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'; upgrade-insecure-requests">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Lyft Threat Intelligence</title>
 <meta name="color-scheme" content="light dark">
@@ -265,6 +265,24 @@ body.sinsesion .main{overflow-x:clip;padding:0;min-height:100vh;display:grid;pla
 .band-tl-meta{margin-left:auto;font-size:12px;color:var(--muted)}
 .band-just{margin:6px 0 0;font-size:13px}
 .band-hid{margin:4px 0 0;font-size:11px;color:var(--muted)}
+/* ---------- matriz de transición ---------- */
+.tran-ks{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:12px}
+.tran-k{display:flex;flex-direction:column;gap:2px;padding:12px 14px;border:1px solid var(--line);border-radius:12px}
+.tran-kn{font-size:22px;font-weight:700;line-height:1}
+.tran-kl{font-size:12px;color:var(--muted)}
+.tran-t{text-align:center}
+.tran-t th,.tran-t td{padding:8px 10px;border:1px solid var(--line)}
+.tran-cap{font-size:11.5px;color:var(--muted);font-weight:600;text-align:center}
+.tran-rh{white-space:nowrap;font-size:12px}
+.tran-cel{font-weight:700;font-size:15px}
+.tran-tot{background:var(--soft);font-weight:600;color:var(--muted)}
+.tran-cero{color:var(--muted);font-weight:400;background:var(--soft2)}
+.tran-esc{background:var(--bad-bg);color:var(--bad)}
+.tran-eq{background:var(--soft2)}
+.tran-red{background:var(--ok-bg);color:var(--ok)}
+.tran-k.tran-cero{background:var(--soft2);color:var(--muted)}
+.tran-k.tran-esc,.tran-k.tran-eq,.tran-k.tran-red{border:none}
+.tran-leg{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-1px;border:1px solid var(--line)}
 
 /* ---------- resumen semanal ---------- */
 .rep{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px 26px;max-width:1040px}
@@ -336,6 +354,7 @@ body.sinsesion .main{overflow-x:clip;padding:0;min-height:100vh;display:grid;pla
       <a href="#panel" id="nav-panel"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>Panel</a>
       <a href="#reporte" id="nav-rep"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9Z"/><path d="M14 3v6h6"/><path d="M8 17v-3M12 17v-6M16 17v-2"/></svg>Resumen semanal</a>
       <a href="#bandeja" id="nav-band"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5.5 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.5-6.5A2 2 0 0 0 16.8 4H7.2a2 2 0 0 0-1.7 1.5Z"/></svg>Bandeja</a>
+      <a href="#transiciones" id="nav-tran"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>Transiciones</a>
       <a href="#configuracion" id="nav-conf"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg>Configuración</a>
       <a href="#usuarios" id="nav-usr" style="display:none"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7" r="4"/><path d="M2 21c0-4 3-7 7-7h1M18 21v-5M15.5 18.5h5"/></svg>Usuarios</a>
     </nav>
@@ -462,6 +481,12 @@ MOCK["bandeja"]={estados_orden:["pendiente_aprobacion_dueno","confirmado","en_re
     {hallazgo_id:"11111111-1111-1111-1111-111111111199",estado_anterior:"pendiente_aprobacion_dueno",estado_nuevo:"riesgo_aceptado",decidido_en:f(4),justificacion:"Expuesto solo en red interna; mitigación compensatoria.",vence_en:f(-120),decidido_por:"Carlos Ruiz"},
     {hallazgo_id:"11111111-1111-1111-1111-111111111198",estado_anterior:"en_remediacion",estado_nuevo:"remediado",decidido_en:f(6),justificacion:"Verificado tras el parche.",vence_en:null,decidido_por:"Ana García"}]};
 })();
+MOCK["transiciones"]={total:10,comparables:10,no_comparable:0,escalaciones:1,reducciones:2,sin_cambio:7,
+  nota:"Cambio de clasificación oficial→motor sombra; no implica remediación. El motor opera en modo sombra.",
+  matriz:[{oficial:1,motor:1,n:3},{oficial:1,motor:2,n:0},{oficial:1,motor:3,n:0},{oficial:1,motor:4,n:0},
+    {oficial:2,motor:1,n:0},{oficial:2,motor:2,n:0},{oficial:2,motor:3,n:2},{oficial:2,motor:4,n:0},
+    {oficial:3,motor:1,n:0},{oficial:3,motor:2,n:0},{oficial:3,motor:3,n:4},{oficial:3,motor:4,n:0},
+    {oficial:4,motor:1,n:0},{oficial:4,motor:2,n:0},{oficial:4,motor:3,n:1},{oficial:4,motor:4,n:0}]};
 MOCK["asesoria"]={disponible:true,vigente:true,corrida_id:"demo0000",generado_en:new Date(Date.now()-36e5).toISOString(),modelo:"modelo de ejemplo",confianza:0.5,
   motor:{prioridad_final:1,prioridad_base:1,piso:1,tipo:"investigacion",aplicabilidad:"candidate",version:"(ejemplo)"},
   explicacion:"Ejemplo: el motor asigna la prioridad más alta de investigación porque la vulnerabilidad figura en KEV y el activo está expuesto. Primero hay que confirmar que la versión instalada está afectada.",
@@ -707,6 +732,38 @@ function viewBandeja(){
       '<h3 class="band-h">Bitácora de decisiones</h3><ul class="band-tl">'+bitacora+'</ul>'+
       '</div>';
   },function(e){main.innerHTML='<div class="top"><div><h1>Bandeja de decisiones</h1></div></div><p class="empty">'+esc(e.message)+'<br><button class="btn sm" style="margin-top:10px" id="rb">Reintentar</button></p>';var rb=document.getElementById("rb");if(rb)rb.addEventListener("click",viewBandeja)});
+}
+
+/* ---------- matriz de transición de prioridad (solo lectura) ---------- */
+var TRAN_NOTA='Clasificación oficial (panel) frente a la del motor contextual, que funciona en modo sombra: es un cambio de clasificación, no una remediación ni una prioridad oficial nueva. Los hallazgos sin valoración del motor se cuentan como «no comparable».';
+function viewTransiciones(){
+  main.innerHTML='<div class="top"><div><h1>Matriz de transición</h1><p>Prioridad oficial → motor contextual (sombra).</p></div>'+(DEMO?'<div class="acts"><span class="chip">Datos de ejemplo</span></div>':'')+'</div><p class="empty">Cargando…</p>';
+  api("transiciones").then(function(d){
+    var m={};(d.matriz||[]).forEach(function(c){m[c.oficial+"-"+c.motor]=c.n});
+    function colTotal(b){return [1,2,3,4].reduce(function(s,a){return s+(m[a+"-"+b]||0)},0)}
+    function rowTotal(a){return [1,2,3,4].reduce(function(s,b){return s+(m[a+"-"+b]||0)},0)}
+    var celdas="";
+    [1,2,3,4].forEach(function(a){
+      celdas+='<tr><th class="tran-rh"><span class="pill pr'+a+'">P'+a+'</span></th>';
+      [1,2,3,4].forEach(function(b){
+        var n=m[a+"-"+b]||0,cls=b<a?"tran-esc":b>a?"tran-red":"tran-eq";
+        celdas+='<td class="tran-cel '+(n?cls:"tran-cero")+'"'+(n?' title="Oficial P'+a+' → Motor P'+b+': '+n+'"':'')+'>'+(n||'·')+'</td>';
+      });
+      celdas+='<td class="tran-tot">'+rowTotal(a)+'</td></tr>';
+    });
+    var pie='<tr><th class="tran-rh">Σ motor</th>'+[1,2,3,4].map(function(b){return '<td class="tran-tot">'+colTotal(b)+'</td>'}).join("")+'<td class="tran-tot">'+(d.comparables||0)+'</td></tr>';
+    var resumen=[["Escalaciones",d.escalaciones,"tran-esc"],["Sin cambio",d.sin_cambio,"tran-eq"],["Reducciones",d.reducciones,"tran-red"],["No comparable",d.no_comparable,"tran-cero"]]
+      .map(function(x){return '<div class="tran-k '+x[2]+'"><span class="tran-kn">'+(x[1]||0)+'</span><span class="tran-kl">'+x[0]+'</span></div>'}).join("");
+    main.innerHTML='<div class="top"><div><h1>Matriz de transición</h1><p>Prioridad oficial → motor contextual (sombra).</p></div>'+(DEMO?'<div class="acts"><span class="chip">Datos de ejemplo</span></div>':'')+'</div>'+
+      '<div style="max-width:720px"><p class="usrs-nota">'+esc(TRAN_NOTA)+'</p>'+
+      '<div class="tran-ks">'+resumen+'</div>'+
+      '<p style="font-size:13px;color:var(--muted);margin:4px 0 12px">'+(d.comparables||0)+' comparables de '+(d.total||0)+' hallazgos abiertos'+(d.no_comparable?' · '+d.no_comparable+' sin valoración del motor':'')+'.</p>'+
+      '<div class="usrs-tbl"><table class="tran-t"><thead><tr><th></th><th colspan="4" class="tran-cap">Motor contextual (sombra)</th><th></th></tr>'+
+      '<tr><th class="tran-rh">Oficial ↓</th><th><span class="pill pr1">P1</span></th><th><span class="pill pr2">P2</span></th><th><span class="pill pr3">P3</span></th><th><span class="pill pr4">P4</span></th><th class="tran-tot">Σ</th></tr></thead>'+
+      '<tbody>'+celdas+pie+'</tbody></table></div>'+
+      '<p style="font-size:12px;color:var(--muted);margin-top:10px"><span class="tran-leg tran-esc"></span> escaló (más urgente) &nbsp; <span class="tran-leg tran-eq"></span> sin cambio &nbsp; <span class="tran-leg tran-red"></span> bajó (menos urgente)</p>'+
+      '</div>';
+  },function(e){main.innerHTML='<div class="top"><div><h1>Matriz de transición</h1></div></div><p class="empty">'+esc(e.message)+'<br><button class="btn sm" style="margin-top:10px" id="rt">Reintentar</button></p>';var rt=document.getElementById("rt");if(rt)rt.addEventListener("click",viewTransiciones)});
 }
 
 /* ---------- estado ---------- */
@@ -3475,12 +3532,14 @@ function route(){
     main.innerHTML='<div class="top"><div><h1>Sin configuración</h1><p>No se encontró <code>config.js</code> con <code>window.LTI_CONFIG</code>. Para usar datos de ejemplo añade <code>?demo</code> a la URL.</p></div></div>';return}
   $("#nav-panel").removeAttribute("aria-current");$("#nav-conf").removeAttribute("aria-current");$("#nav-rep").removeAttribute("aria-current");
   var nb=$("#nav-band");if(nb)nb.removeAttribute("aria-current");
+  var nt=$("#nav-tran");if(nt)nt.removeAttribute("aria-current");
   var nu=$("#nav-usr");if(nu)nu.removeAttribute("aria-current");
   if(!DEMO&&(!AUTH||!AUTH.id)){pintaUsuario();return viewLogin()}
   document.body.classList.remove("sinsesion");pintaUsuario();
   var nu2=$("#nav-usr");if(nu2)nu2.style.display=esAdmin()?"":"none";
   if(h==="reporte"){$("#nav-rep").setAttribute("aria-current","page");editando=false;viewReporte()}
   else if(h==="bandeja"){if(nb)nb.setAttribute("aria-current","page");editando=false;viewBandeja()}
+  else if(h==="transiciones"){if(nt)nt.setAttribute("aria-current","page");editando=false;viewTransiciones()}
   else if(h==="configuracion"){$("#nav-conf").setAttribute("aria-current","page");editando=false;viewConfig()}
   else if(h==="usuarios"){if(nu2)nu2.setAttribute("aria-current","page");editando=false;viewUsuarios()}
   else{$("#nav-panel").setAttribute("aria-current","page");viewPanel()}

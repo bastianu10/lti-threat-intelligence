@@ -7,6 +7,6 @@ venv/
 auditoria-aws-*
 paquetes/*
 # Solo se versiona el paquete desplegado actualmente (el de numero mas alto).
-!paquetes/lti-nucleo-v18.zip
+!paquetes/lti-nucleo-v19.zip
 respaldo/
 /plantilla-aws.yaml

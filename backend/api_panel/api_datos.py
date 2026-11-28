@@ -11,6 +11,7 @@ Rutas (API Gateway HTTP, con Cognito delante):
   GET  /api/por-criticidad     hallazgos abiertos por criticidad del activo
   GET  /api/ambiguos           casos que el cruce determinista no pudo decidir (aun no se guardan)
   GET  /api/bandeja            bandeja HITL de solo lectura: hallazgos por estado + bitacora de decisiones
+  GET  /api/transiciones       matriz 4x4 de prioridad oficial -> motor sombra (solo lectura, 'no comparable' si falta)
   GET  /api/reporte-semanal    resumen semanal de los ultimos 7 dias (postura, plazos, KEV, agente)
   GET  /api/asesoria?hallazgo=<uuid>  asesoria del agente (no vinculante) para un hallazgo del tenant
 
@@ -524,9 +525,64 @@ def reporte_semanal(con, _p):
     }
 
 
+# Matriz de transición de prioridad (P1.5): oficial (cruce/panel) -> motor sombra. SOLO LECTURA.
+# El motor sombra se lee del documento más reciente del agente en S3 (acotado por 'tope'); los hallazgos
+# sin documento válido del motor se cuentan como 'no comparable'. Es cambio de CLASIFICACIÓN, no remediación.
+def _motor_prioridad_de(bucket, indice, hid):
+    if hid not in indice:
+        return None
+    clave, corrida, _ = indice[hid]
+    try:
+        doc = json.loads(_s3().get_object(Bucket=bucket, Key=clave)["Body"].read(MAX_DOC_BYTES + 1))
+    except ValueError:
+        return None
+    if not _documento_valido(doc, hid) or doc.get("corrida_id") != corrida:
+        return None
+    v = (doc.get("prioridad") or {}).get("final")
+    return v if isinstance(v, int) and not isinstance(v, bool) and 1 <= v <= 4 else None
+
+
+def transiciones(con, p):
+    tope = _entero(p.get("tope"), 80, 1, 200)
+    filas = _q(con, """
+        SELECT v.hallazgo_id AS id, v.prioridad_final
+          FROM v_lista_oficial v WHERE NOT v.es_cerrado AND NOT v.no_aplica
+         ORDER BY v.prioridad_final NULLS LAST, v.puntaje_riesgo DESC NULLS LAST
+         LIMIT CAST(:n AS integer)""", n=tope)
+    total = len(filas)
+    matriz = {a: {b: 0 for b in (1, 2, 3, 4)} for a in (1, 2, 3, 4)}
+    comparables = escal = reduc = igual = no_comp = 0
+    motor_por = {}
+    bucket = os.environ.get("BUCKET_CURADA")
+    if bucket:
+        try:
+            indice, _ = _docs_agente(bucket, datetime.datetime.now(datetime.timezone.utc))
+            for f in filas:
+                pm = _motor_prioridad_de(bucket, indice, str(f["id"]))
+                if pm is not None:
+                    motor_por[str(f["id"])] = pm
+        except Exception as e:                       # la matriz sale igual, marcando todo 'no comparable'
+            print("transiciones: agente no disponible", type(e).__name__)
+    for f in filas:
+        po, pm = f["prioridad_final"], motor_por.get(str(f["id"]))
+        if po is None or pm is None:
+            no_comp += 1
+            continue
+        matriz[po][pm] += 1
+        comparables += 1
+        escal += pm < po          # número menor = más urgente
+        reduc += pm > po
+        igual += pm == po
+    return {"total": total, "comparables": comparables, "no_comparable": no_comp,
+            "escalaciones": int(escal), "reducciones": int(reduc), "sin_cambio": int(igual),
+            "matriz": [{"oficial": a, "motor": b, "n": matriz[a][b]} for a in (1, 2, 3, 4) for b in (1, 2, 3, 4)],
+            "nota": "Cambio de clasificación oficial→motor sombra; no implica remediación. El motor opera en modo sombra."}
+
+
 RUTAS = {"resumen": resumen, "tendencia": tendencia, "hallazgos": hallazgos, "recursos": recursos,
          "cobertura": cobertura, "por-criticidad": por_criticidad, "ambiguos": ambiguos,
-         "asesoria": asesoria, "reporte-semanal": reporte_semanal, "bandeja": bandeja}
+         "asesoria": asesoria, "reporte-semanal": reporte_semanal, "bandeja": bandeja,
+         "transiciones": transiciones}
 
 
 NIVEL = {"critica": 1, "alta": 2, "media": 3, "baja": 4}
