@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <!-- F-4: CSP estricta. Si cambias el script en linea, recalcula su sha256 (scripts/csp_hash.py). -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-9q1cI+bPQdFibaf+Sle05KWPNn13BGcLkdmQD5fm3V0='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self' https://cognito-idp.us-east-2.amazonaws.com; img-src 'self' data:; manifest-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'; upgrade-insecure-requests">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-Hp+w9LqPSd3iAv1cce21l/6uSD92hB7ocDmBqugPFAY='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self' https://cognito-idp.us-east-2.amazonaws.com; img-src 'self' data:; manifest-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'; upgrade-insecure-requests">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Lyft Threat Intelligence</title>
 <meta name="color-scheme" content="light dark">
@@ -323,11 +323,11 @@ body.sinsesion .main{overflow-x:clip;padding:0;min-height:100vh;display:grid;pla
 .rep-ley{display:flex;gap:10px;flex-wrap:wrap;font-size:11.5px;color:var(--muted);margin-top:6px}
 .rep-ley i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:4px;vertical-align:-1px}
 .rep-f{font-size:11.5px;color:var(--muted);border-top:1px solid var(--line);padding-top:10px;line-height:1.5}
-.rep .proc-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
-.rep .proc-wrap table{width:100%}
-.rep .proc-wrap th,.rep .proc-wrap td{word-break:break-word}
-.rep .proc-wrap td:first-child,.rep .proc-wrap th:first-child{min-width:130px}
-.rep .proc-wrap td:nth-child(2),.rep .proc-wrap th:nth-child(2),.rep .proc-wrap td:nth-child(3),.rep .proc-wrap th:nth-child(3),.rep .proc-wrap td:nth-child(4),.rep .proc-wrap th:nth-child(4){white-space:nowrap}
+.rep .proc-list{display:grid;gap:10px}
+.rep .proc-item{border:1px solid var(--line);border-radius:8px;padding:9px 11px;break-inside:avoid}
+.rep .proc-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0}
+.rep .proc-sig{margin:4px 0 0;font-size:12px;color:var(--muted)}
+.rep .proc-cons{margin:5px 0 0;font-size:13px;line-height:1.45;word-break:break-word}
 .rep-ia{font-size:12px;font-weight:600;white-space:nowrap}
 .rep-ia.esc{color:var(--bad)}
 @media (max-width:760px){.rep-kpis{grid-template-columns:repeat(2,1fr)}.rep-2{grid-template-columns:1fr}.rep{padding:16px}}
@@ -349,9 +349,7 @@ body.sinsesion .main{overflow-x:clip;padding:0;min-height:100vh;display:grid;pla
   .rep .list li{padding-block:1px;min-height:0}
   .rep .stack{height:14px}
   .rep table{font-size:11px}.rep td,.rep th{padding:3px 5px}
-  .rep .proc-wrap{overflow:visible!important}
-  .rep .proc-wrap table{table-layout:fixed}
-  .rep .proc-wrap th,.rep .proc-wrap td{white-space:normal!important;word-break:break-word}
+  .rep .proc-item{padding:6px 9px}.rep .proc-cons{font-size:11.5px}
   .rep-mov{margin-top:6px}.rep-mov b{font-size:15px}
   *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
 }
@@ -670,8 +668,13 @@ function repHtml(r){
   var tot=P.abiertos||0;
   var dist='<div class="stack" role="img" aria-label="Distribución por prioridad">'+[1,2,3,4].filter(function(p){return +pp[p]>0}).map(function(p){return '<div style="flex:'+(+pp[p])+';background:'+PRIO[p][2]+'"></div>'}).join("")+'</div>'+
     '<ul class="list">'+[1,2,3,4].map(function(p){return '<li><span class="pill '+PRIO[p][1]+'">'+PRIO[p][0]+'</span><span class="t"></span><b style="font-variant-numeric:tabular-nums">'+(+pp[p]||0)+'</b><span style="color:var(--muted);width:40px;text-align:right">'+(tot?Math.round((+pp[p]||0)/tot*100):0)+'%</span></li>'}).join("")+'</ul>';
-  var procesos=(r.procesos||[]).length?'<div class="proc-wrap"><table><thead><tr><th scope="col">Proceso de negocio afectado</th><th scope="col">Prioridad</th><th scope="col">CVE</th><th scope="col">Señal</th><th scope="col">Recomendación de la IA</th></tr></thead><tbody>'+
-      r.procesos.map(function(p){return '<tr><td><b>'+esc(p.proceso)+'</b>'+(p.consecuencia?'<br><span style="color:var(--muted)">'+esc(p.consecuencia)+'</span>':'')+'</td><td>'+repPill(p.prioridad)+'</td><td class="n">'+(+p.cves||0)+'</td><td>'+[p.kev?'<span class="venc">KEV</span>':'',p.vencido?'<span class="venc">vencido</span>':''].filter(Boolean).join(" · ")+'</td><td>'+(p.escalar?'<span class="rep-ia esc">Escalar ('+p.escalar+')</span>':'<span class="rep-ia">Mantener</span>')+'</td></tr>'}).join("")+'</tbody></table></div>'
+  var procesos=(r.procesos||[]).length?'<div class="proc-list">'+
+      r.procesos.map(function(p){
+        var sig=[(+p.cves||0)+' CVE'+((+p.cves===1)?'':'s'),p.kev?'KEV':'',p.vencido?'plazo vencido':''].filter(Boolean).join(" · ");
+        var ia=p.escalar?'<span class="rep-ia esc">IA: escalar ('+p.escalar+')</span>':'<span class="rep-ia">IA: mantener</span>';
+        return '<article class="proc-item"><p class="proc-head"><b>'+esc(p.proceso)+'</b> '+repPill(p.prioridad)+'</p>'+
+          '<p class="proc-sig">'+esc(sig)+' &nbsp;·&nbsp; '+ia+'</p>'+
+          (p.consecuencia?'<p class="proc-cons">'+esc(p.consecuencia)+'</p>':'')+'</article>'}).join("")+'</div>'
     :'<p class="empty">'+(a.disponible?'El agente no ha asesorado hallazgos abiertos en los últimos 7 días.':'El análisis del agente no está disponible en este momento.')+'</p>';
   var top=(r.top||[]).length?'<table><thead><tr><th scope="col">Vulnerabilidad</th><th scope="col">Prioridad</th><th scope="col">Plazo</th><th scope="col">Sistemas afectados</th><th scope="col">IA</th></tr></thead><tbody>'+
       r.top.map(function(x){var extra=x.n_activos>(x.activos||[]).length?' y '+(x.n_activos-x.activos.length)+' más':'';

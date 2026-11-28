@@ -35,7 +35,7 @@ function conReporte(transformar) {
   comprobar(/no vinculante/.test(t) && /decide el dueño/.test(t), "declara que la IA no es vinculante");
   comprobar(rep.querySelectorAll("svg[role=img] rect").length >= 14, "gráfica de tendencia (SVG accesible)");
   comprobar(/Vencido hace 13 d/.test(t) && /\+3 vs\. semana anterior/.test(t), "plazos vencidos y comparación semanal visibles");
-  comprobar(rep.querySelectorAll("tbody tr").length === 4, "tablas de procesos (2) y urgentes (2)");
+  comprobar(rep.querySelectorAll(".proc-item").length === 2 && rep.querySelectorAll("tbody tr").length === 2, "procesos (2 tarjetas) y urgentes (2 filas)");
   comprobar(/IA: escalar/.test(t) && /USD 3\.97/.test(t), "recomendación de la IA y costo estimado del agente");
   comprobar(rep.querySelectorAll("button").length === 0, "el reporte no tiene acciones (solo lectura)");
   console.log("== 2. PDF e impresión");
