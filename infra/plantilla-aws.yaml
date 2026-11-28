@@ -855,14 +855,17 @@ Resources:
                 Condition:
                   StringLike:
                     s3:prefix: "agente/11111111-1111-1111-1111-111111111111/*"
-        # C1 / H1 (23-nov): autenticacion IAM a RDS SOLO como u_dashboard (sin DB_PASSWORD en la funcion).
-        - PolicyName: conectar-rds-iam-u-dashboard
+        # C1 / H1 (23-nov): autenticacion IAM a RDS. Lectura como u_dashboard (solo lectura) y, para el
+        # alta de activos desde el panel (P2.1), escritura acotada como u_panel_alta (solo INSERT en activos).
+        - PolicyName: conectar-rds-iam
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
               - Effect: Allow
                 Action: rds-db:connect
-                Resource: !Sub "arn:aws:rds-db:${AWS::Region}:${AWS::AccountId}:dbuser:${BaseDatosRDS.DbiResourceId}/u_dashboard"
+                Resource:
+                  - !Sub "arn:aws:rds-db:${AWS::Region}:${AWS::AccountId}:dbuser:${BaseDatosRDS.DbiResourceId}/u_dashboard"
+                  - !Sub "arn:aws:rds-db:${AWS::Region}:${AWS::AccountId}:dbuser:${BaseDatosRDS.DbiResourceId}/u_panel_alta"
 
   FuncionApiDatos:
     Type: AWS::Lambda::Function
@@ -1132,6 +1135,16 @@ Resources:
     Properties:
       ApiId: !Ref ApiPanel
       RouteKey: "GET /api/{proxy+}"
+      AuthorizationType: JWT
+      AuthorizerId: !Ref AutorizadorPanel
+      Target: !Sub "integrations/${IntegracionDatos}"
+
+  # Alta de activos (P2.1): unica escritura del panel que llega a RDS; la Lambda la acota a admin + u_panel_alta.
+  RutaActivos:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref ApiPanel
+      RouteKey: "POST /api/activos"
       AuthorizationType: JWT
       AuthorizerId: !Ref AutorizadorPanel
       Target: !Sub "integrations/${IntegracionDatos}"

@@ -12,6 +12,8 @@ Rutas (API Gateway HTTP, con Cognito delante):
   GET  /api/ambiguos           casos que el cruce determinista no pudo decidir (aun no se guardan)
   GET  /api/bandeja            bandeja HITL de solo lectura: hallazgos por estado + bitacora de decisiones
   GET  /api/transiciones       matriz 4x4 de prioridad oficial -> motor sombra (solo lectura, 'no comparable' si falta)
+  GET  /api/inventario-opciones  duenos, equipos, dominios y enums para el alta de activos (solo lectura)
+  POST /api/activos            alta de un activo en el inventario (SOLO admin; escritura acotada con u_panel_alta)
   GET  /api/reporte-semanal    resumen semanal de los ultimos 7 dias (postura, plazos, KEV, agente)
   GET  /api/asesoria?hallazgo=<uuid>  asesoria del agente (no vinculante) para un hallazgo del tenant
 
@@ -47,7 +49,7 @@ def _contexto_tls():
     return ctx
 
 
-def _clave(host):
+def _clave(host, usuario):
     """H1 (v10): con DB_AUTH_MODE=iam la clave es un token de 15 min firmado localmente con el rol de la Lambda
     (no requiere red ni secretos). password_env solo existe para reversion y pruebas locales."""
     global _rds
@@ -56,18 +58,19 @@ def _clave(host):
         if _rds is None:
             import boto3
             _rds = boto3.client("rds")
-        return _rds.generate_db_auth_token(DBHostname=host, Port=5432, DBUsername=USUARIO_BD,
+        return _rds.generate_db_auth_token(DBHostname=host, Port=5432, DBUsername=usuario,
                                            Region=os.environ.get("AWS_REGION"))
     if modo == "password_env":
         return os.environ["DB_PASSWORD"]
     raise RuntimeError("DB_AUTH_MODE invalido")
 
 
-def _con():
+def _con(usuario=USUARIO_BD):
+    # usuario por defecto: u_dashboard (solo lectura). Para el alta de activos se usa u_panel_alta (solo INSERT).
     import pg8000.native as pg
     host = os.environ["DB_HOST"]
     ctx = None if os.environ.get("LTI_SIN_SSL") else _contexto_tls()   # LTI_SIN_SSL: solo base local de pruebas
-    con = pg.Connection(USUARIO_BD, host=host, port=5432, database="lti", password=_clave(host),
+    con = pg.Connection(usuario, host=host, port=5432, database="lti", password=_clave(host, usuario),
                         ssl_context=ctx, timeout=10)
     con.run("SET TIME ZONE 'UTC'")
     con.run("SELECT set_config('app.tenant_id', :t, false)", t=TENANT)   # RLS: igual que lti_db.conectar
@@ -584,10 +587,116 @@ def transiciones(con, p):
             "nota": "Cambio de clasificación oficial→motor sombra; no implica remediación. El motor opera en modo sombra."}
 
 
+# ---------------------------------------------------------------- Alta de activos (P2.1): SOLO admin
+# Las opciones del formulario se leen con u_dashboard; la escritura (INSERT) se hace con u_panel_alta
+# (rol ti_panel_alta: solo INSERT en activos; la RLS p_tenant aplica WITH CHECK por tenant). u_dashboard
+# nunca escribe. El recurso de AWS no queda 'registrado' hasta etiquetarlo activo=<codigo> y resincronizar la CMDB.
+USUARIO_ESCRITURA = "u_panel_alta"
+TIPOS_ACTIVO = ("servicio", "base_datos", "servidor", "contenedor", "funcion_serverless",
+                "aplicacion_movil", "red", "saas", "otro")
+CAPAS_ACTIVO = ("presentacion", "aplicacion", "datos", "infraestructura", "red")
+CLASIF_ACTIVO = ("publica", "interna", "confidencial", "restringida")
+RE_CODIGO = re.compile(r"^[a-z0-9][a-z0-9._-]{1,62}$")
+
+
+def _es_admin(event):
+    claims = (((event.get("requestContext") or {}).get("authorizer") or {}).get("jwt") or {}).get("claims") or {}
+    return "admin" in set(re.findall(r"[A-Za-z0-9_-]+", str(claims.get("cognito:groups", ""))))
+
+
+def _cuerpo(event):
+    b = event.get("body") or ""
+    if event.get("isBase64Encoded"):
+        import base64 as _b64
+        b = _b64.b64decode(b).decode("utf-8")
+    try:
+        d = json.loads(b) if b else {}
+        return d if isinstance(d, dict) else {}
+    except ValueError:
+        return {}
+
+
+def _texto(v, n):
+    v = v.strip() if isinstance(v, str) else ""
+    return v[:n] if v else None
+
+
+def inventario_opciones(con, _p):
+    """Opciones para el formulario de alta: dueños, equipos, dominios ya usados y los enums del esquema."""
+    return {
+        "usuarios": _q(con, "SELECT id, nombre, correo FROM usuarios WHERE activo ORDER BY nombre"),
+        "equipos": _q(con, "SELECT id, nombre FROM equipos ORDER BY nombre"),
+        "dominios": [r["dominio_negocio"] for r in _q(con,
+                     "SELECT DISTINCT dominio_negocio FROM activos WHERE dado_de_baja_en IS NULL ORDER BY 1")],
+        "tipos": list(TIPOS_ACTIVO), "capas": list(CAPAS_ACTIVO), "clasificaciones": list(CLASIF_ACTIVO),
+    }
+
+
+def crear_activo(event):
+    if not _es_admin(event):
+        raise ErrorCliente(403, "Solo un administrador puede dar de alta activos")
+    d = _cuerpo(event)
+    codigo = (d.get("codigo") or "").strip().lower()
+    nombre = _texto(d.get("nombre"), 200)
+    tipo = d.get("tipo")
+    capa = d.get("capa") or None
+    dominio = _texto(d.get("dominio_negocio"), 120)
+    clasif = d.get("clasificacion_informacion")
+    descripcion = _texto(d.get("descripcion"), 2000)
+    try:
+        criticidad = int(d.get("criticidad"))
+    except (TypeError, ValueError):
+        criticidad = None
+    dueno = (d.get("dueno_id") or "").strip().lower()
+    equipo = (d.get("equipo_id") or "").strip().lower() or None
+    if not RE_CODIGO.match(codigo):
+        raise ErrorCliente(400, "Código inválido: minúsculas, números, punto, guion o guion bajo; 2 a 63 caracteres")
+    if not nombre:
+        raise ErrorCliente(400, "El nombre es obligatorio")
+    if tipo not in TIPOS_ACTIVO:
+        raise ErrorCliente(400, "Tipo de activo inválido")
+    if capa is not None and capa not in CAPAS_ACTIVO:
+        raise ErrorCliente(400, "Capa inválida")
+    if not dominio:
+        raise ErrorCliente(400, "El dominio de negocio es obligatorio")
+    if criticidad is None or not 1 <= criticidad <= 5:
+        raise ErrorCliente(400, "La criticidad debe ser un número de 1 a 5")
+    if clasif not in CLASIF_ACTIVO:
+        raise ErrorCliente(400, "Clasificación de información inválida")
+    if not RE_UUID.match(dueno):
+        raise ErrorCliente(400, "Debes elegir un dueño")
+    if equipo is not None and not RE_UUID.match(equipo):
+        raise ErrorCliente(400, "Equipo inválido")
+    con = None
+    try:
+        con = _con(USUARIO_ESCRITURA)
+        if _q(con, "SELECT 1 FROM activos WHERE codigo = :c", c=codigo):
+            raise ErrorCliente(409, "Ya existe un activo con ese código")
+        if not _q(con, "SELECT 1 FROM usuarios WHERE id = CAST(:u AS uuid)", u=dueno):
+            raise ErrorCliente(400, "El dueño elegido no existe")
+        if equipo and not _q(con, "SELECT 1 FROM equipos WHERE id = CAST(:e AS uuid)", e=equipo):
+            raise ErrorCliente(400, "El equipo elegido no existe")
+        fila = _q(con, """
+            INSERT INTO activos (tenant_id, codigo, nombre, tipo, capa, dominio_negocio, criticidad,
+                                 clasificacion_informacion, dueno_id, equipo_id, descripcion)
+            VALUES (CAST(:t AS uuid), :cod, :nom, :tipo, :capa, :dom, :crit, :clasif,
+                    CAST(:dueno AS uuid), CAST(:equipo AS uuid), :desc)
+            RETURNING id, codigo""",
+                   t=TENANT, cod=codigo, nom=nombre, tipo=tipo, capa=capa, dom=dominio, crit=criticidad,
+                   clasif=clasif, dueno=dueno, equipo=equipo, desc=descripcion)[0]
+        return {"ok": True, "id": fila["id"], "codigo": fila["codigo"]}
+    finally:
+        if con is not None:
+            try:
+                con.close()
+            except Exception:
+                pass
+
+
 RUTAS = {"resumen": resumen, "tendencia": tendencia, "hallazgos": hallazgos, "recursos": recursos,
          "cobertura": cobertura, "por-criticidad": por_criticidad, "ambiguos": ambiguos,
          "asesoria": asesoria, "reporte-semanal": reporte_semanal, "bandeja": bandeja,
-         "transiciones": transiciones}
+         "transiciones": transiciones, "inventario-opciones": inventario_opciones}
 
 
 NIVEL = {"critica": 1, "alta": 2, "media": 3, "baja": 4}
@@ -735,6 +844,12 @@ def handler(event, context):
     con = None
     try:
         ruta = (event.get("rawPath") or "").split("/api/", 1)[-1].strip("/")
+        metodo = ((event.get("requestContext") or {}).get("http") or {}).get("method", "GET").upper()
+
+        # Alta de activos (admin): escritura acotada con su propia conexión (u_panel_alta).
+        if metodo == "POST" and ruta == "activos":
+            return _resp(201, crear_activo(event))
+
         con = _con()
         if event.get("accion") == "snapshot":                      # lo llama Step Functions al final del flujo
             m = snapshot(con)

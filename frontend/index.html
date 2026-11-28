@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <!-- F-4: CSP estricta. Si cambias el script en linea, recalcula su sha256 (scripts/csp_hash.py). -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-Hp+w9LqPSd3iAv1cce21l/6uSD92hB7ocDmBqugPFAY='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self' https://cognito-idp.us-east-2.amazonaws.com; img-src 'self' data:; manifest-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'; upgrade-insecure-requests">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-tIK0sl1Y6J6CySIS/DY6tVbDxuTFLwxGvo6+cuAoCCQ='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self' https://cognito-idp.us-east-2.amazonaws.com; img-src 'self' data:; manifest-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'; upgrade-insecure-requests">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Lyft Threat Intelligence</title>
 <meta name="color-scheme" content="light dark">
@@ -293,6 +293,19 @@ body.sinsesion .main{overflow-x:clip;padding:0;min-height:100vh;display:grid;pla
 #tran-det{margin-top:18px}
 .tran-row{cursor:pointer}
 .tran-row:hover,.tran-row:focus-visible{background:var(--soft)}
+/* ---------- modal de alta de activo ---------- */
+.dlg-fondo{position:fixed;inset:0;background:rgba(30,18,32,.45);z-index:80;display:flex;align-items:center;justify-content:center;padding:16px}
+.dlg-card{background:var(--panel);border:1px solid var(--line);border-radius:14px;width:min(560px,96vw);max-height:90vh;overflow:auto;padding:20px 22px}
+.dlg-card h3{margin:0 0 4px;font-size:16px}
+.dlg-sub{margin:0 0 14px;font-size:12.5px;color:var(--muted)}
+.dlg-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.dlg-field{display:grid;gap:4px}
+.dlg-field.col2{grid-column:1/-1}
+.dlg-field label{font-size:12px;color:var(--muted);font-weight:600}
+.dlg-field input,.dlg-field select,.dlg-field textarea{width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:13.5px;background:var(--bg);color:var(--fg);font-family:inherit}
+.dlg-foot{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+.dlg-err{color:var(--bad);font-size:13px;margin:10px 0 0}
+@media(max-width:480px){.dlg-grid{grid-template-columns:1fr}}
 
 /* ---------- resumen semanal ---------- */
 .rep{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px 26px;max-width:1040px}
@@ -478,6 +491,14 @@ MOCK["sistema/usuarios"]={items:[
   {username:"diana.lopez",correo:"diana.lopez@lyft.example",grupos:["lectura"],habilitado:true,estado:"FORCE_CHANGE_PASSWORD",mfa:false,creado:"2026-10-02T09:00:00Z"},
   {username:"esteban.mora",correo:"esteban.mora@lyft.example",grupos:["lectura"],habilitado:false,estado:"CONFIRMED",mfa:false,creado:"2026-10-20T11:00:00Z"}
 ]};
+MOCK["inventario-opciones"]={
+  usuarios:[{id:"11111111-1111-1111-1111-111111111111",nombre:"Ana García",correo:"ana.garcia@lyft.example"},
+    {id:"22222222-2222-2222-2222-222222222222",nombre:"Carlos Ruiz",correo:"carlos.ruiz@lyft.example"}],
+  equipos:[{id:"33333333-3333-3333-3333-333333333333",nombre:"Plataforma"},{id:"44444444-4444-4444-4444-444444444444",nombre:"Datos"}],
+  dominios:["Movilidad","Pagos","Identidad","Operación"],
+  tipos:["servicio","base_datos","servidor","contenedor","funcion_serverless","aplicacion_movil","red","saas","otro"],
+  capas:["presentacion","aplicacion","datos","infraestructura","red"],
+  clasificaciones:["publica","interna","confidencial","restringida"]};
 (function(){var f=function(d){return new Date(Date.now()-d*864e5).toISOString()};
 MOCK["bandeja"]={estados_orden:["pendiente_aprobacion_dueno","confirmado","en_remediacion","remediado","falso_positivo","riesgo_aceptado"],
   por_estado:{pendiente_aprobacion_dueno:4,confirmado:1,en_remediacion:2,remediado:3,falso_positivo:1,riesgo_aceptado:1},
@@ -546,6 +567,7 @@ function api(path,o){
   if(DEMO){return new Promise(function(ok,mal){setTimeout(function(){
     var base=path.split("?")[0];
     if(o.method==="PUT"&&base==="configuracion"){ok({configuracion:o.body,aplicado:{nvd:"aplicado",epss:"aplicado",osv:"aplicado",cmdb:"aplicado"}});return}
+    if(o.method==="POST"&&base==="activos"){ok({ok:true,id:"demo-"+Date.now(),codigo:(o.body||{}).codigo});return}
     if(o.method==="POST"){ok({iniciada:new Date().toISOString(),fuente:(o.body||{}).fuente});return}
     var d=MOCK[base];if(!d){mal(new Error("sin datos"));return}
     if(base==="tendencia"){var m=/dias=(\d+)/.exec(path);var n=m?+m[1]:30;ok({dias:n,puntos:d.puntos.slice(-n)});return}
@@ -828,6 +850,61 @@ function viewTransiciones(){
   },function(e){main.innerHTML='<div class="top"><div><h1>Matriz de transición</h1></div></div><p class="empty">'+esc(e.message)+'<br><button class="btn sm" style="margin-top:10px" id="rt">Reintentar</button></p>';var rt=document.getElementById("rt");if(rt)rt.addEventListener("click",viewTransiciones)});
 }
 
+/* ---------- alta de activos desde el panel (solo admin) ---------- */
+var TIPO_ACT={servicio:"Servicio",base_datos:"Base de datos",servidor:"Servidor",contenedor:"Contenedor",funcion_serverless:"Función serverless",aplicacion_movil:"App móvil",red:"Red",saas:"SaaS",otro:"Otro"};
+var CAPA_ACT={presentacion:"Presentación",aplicacion:"Aplicación",datos:"Datos",infraestructura:"Infraestructura",red:"Red"};
+var CLASIF_ACT={publica:"Pública",interna:"Interna",confidencial:"Confidencial",restringida:"Restringida"};
+var CRIT_ACT={1:"1 · muy baja",2:"2 · baja",3:"3 · media",4:"4 · alta",5:"5 · crítica"};
+var TIPO_SUG={dynamodb:"base_datos",rds:"base_datos",elasticache:"base_datos",ec2:"servidor",lambda:"funcion_serverless",s3:"otro",eks:"contenedor",ecs:"contenedor"};
+function slugCod(s){return String(s||"").toLowerCase().replace(/[^a-z0-9._-]+/g,"-").replace(/^[._-]+|[._-]+$/g,"").slice(0,63)}
+function altaCerrar(){var d=document.getElementById("dlg-alta");if(d)d.remove();document.removeEventListener("keydown",altaTecla)}
+function altaTecla(e){if(e.key==="Escape")altaCerrar()}
+function opt(v,txt,sel){return '<option value="'+esc(v)+'"'+(sel?' selected':'')+'>'+esc(txt)+'</option>'}
+function abrirAltaActivo(rec){
+  if(!esAdmin()){toast("Solo un administrador puede dar de alta activos.");return}
+  altaCerrar();
+  var f=document.createElement("div");f.id="dlg-alta";f.className="dlg-fondo";
+  f.innerHTML='<div class="dlg-card" role="dialog" aria-modal="true" aria-label="Alta de activo"><p class="empty">Cargando opciones…</p></div>';
+  document.body.appendChild(f);document.addEventListener("keydown",altaTecla);
+  f.addEventListener("click",function(e){if(e.target===f)altaCerrar()});
+  api("inventario-opciones").then(function(o){
+    var card=f.querySelector(".dlg-card");if(!card)return;
+    var cod=slugCod(rec&&(rec.etiqueta_activo||rec.nombre)),tipoSug=rec&&TIPO_SUG[rec.tipo]||"servicio";
+    card.innerHTML='<h3>Alta de activo en el inventario</h3>'+
+      '<p class="dlg-sub">'+(rec?'Desde el recurso <b>'+esc(rec.nombre)+'</b>'+(rec.region?' ('+esc(rec.region)+')':'')+'. ':'')+'La prioridad/estado no se tocan: solo se registra el activo.</p>'+
+      '<form autocomplete="off"><div class="dlg-grid">'+
+        '<div class="dlg-field"><label>Código *</label><input id="a-cod" value="'+esc(cod)+'" pattern="[a-z0-9][a-z0-9._-]{1,62}" required></div>'+
+        '<div class="dlg-field"><label>Nombre *</label><input id="a-nom" value="'+esc(rec&&rec.nombre||"")+'" required></div>'+
+        '<div class="dlg-field"><label>Tipo *</label><select id="a-tipo">'+Object.keys(TIPO_ACT).map(function(k){return opt(k,TIPO_ACT[k],k===tipoSug)}).join("")+'</select></div>'+
+        '<div class="dlg-field"><label>Capa</label><select id="a-capa">'+opt("","—",true)+Object.keys(CAPA_ACT).map(function(k){return opt(k,CAPA_ACT[k])}).join("")+'</select></div>'+
+        '<div class="dlg-field"><label>Dominio de negocio *</label><input id="a-dom" list="a-doms" required><datalist id="a-doms">'+(o.dominios||[]).map(function(x){return opt(x,x)}).join("")+'</datalist></div>'+
+        '<div class="dlg-field"><label>Criticidad *</label><select id="a-crit">'+[1,2,3,4,5].map(function(n){return opt(n,CRIT_ACT[n],n===3)}).join("")+'</select></div>'+
+        '<div class="dlg-field"><label>Clasificación *</label><select id="a-clasif">'+Object.keys(CLASIF_ACT).map(function(k){return opt(k,CLASIF_ACT[k],k==="interna")}).join("")+'</select></div>'+
+        '<div class="dlg-field"><label>Dueño *</label><select id="a-dueno"><option value="">Elige…</option>'+(o.usuarios||[]).map(function(u){return opt(u.id,u.nombre+" ("+u.correo+")")}).join("")+'</select></div>'+
+        '<div class="dlg-field col2"><label>Equipo</label><select id="a-equipo">'+opt("","—",true)+(o.equipos||[]).map(function(eq){return opt(eq.id,eq.nombre)}).join("")+'</select></div>'+
+        '<div class="dlg-field col2"><label>Descripción</label><textarea id="a-desc" rows="2"></textarea></div>'+
+      '</div><p id="a-err" class="dlg-err" style="display:none"></p>'+
+      '<div class="dlg-foot"><button type="button" class="btn" id="a-cancel">Cancelar</button><button type="submit" class="btn pri" id="a-ok">Dar de alta</button></div></form>';
+    card.querySelector("#a-cancel").addEventListener("click",altaCerrar);
+    card.querySelector("form").addEventListener("submit",function(e){
+      e.preventDefault();
+      var err=card.querySelector("#a-err"),bt=card.querySelector("#a-ok");
+      function val(id){return (card.querySelector(id).value||"").trim()}
+      var body={codigo:val("#a-cod"),nombre:val("#a-nom"),tipo:val("#a-tipo"),capa:val("#a-capa")||null,
+        dominio_negocio:val("#a-dom"),criticidad:+val("#a-crit"),clasificacion_informacion:val("#a-clasif"),
+        dueno_id:val("#a-dueno"),equipo_id:val("#a-equipo")||null,descripcion:val("#a-desc")||null};
+      if(!body.dueno_id){err.textContent="Elige un dueño.";err.style.display="";return}
+      bt.disabled=true;err.style.display="none";
+      api("activos",{method:"POST",body:body}).then(function(res){
+        altaCerrar();
+        toast("Activo «"+res.codigo+"» creado. Etiqueta el recurso en AWS con activo="+res.codigo+" para que la CMDB lo marque como registrado.");
+        cache={};viewPanel(true);
+      },function(er){bt.disabled=false;err.textContent=er.message||"No se pudo dar de alta el activo.";err.style.display=""});
+    });
+    card.querySelector("#a-cod").focus();
+  },function(e){var card=f.querySelector(".dlg-card");if(card)card.innerHTML='<p class="empty">'+esc(e.message||"No se pudieron cargar las opciones.")+'<br><button class="btn sm" style="margin-top:10px" id="a-x">Cerrar</button></p>';var x=document.getElementById("a-x");if(x)x.addEventListener("click",altaCerrar)});
+}
+
 /* ---------- estado ---------- */
 var FREQS=[["1h","Cada hora"],["6h","Cada 6 horas"],["12h","Cada 12 horas"],["24h","Una vez al día"],["7d","Una vez por semana"]];
 var FEED_META={
@@ -990,8 +1067,9 @@ var R={
   sinreg:function(b){
     var d=dato("recursos");if(!d)return falla(b,"recursos");
     if(!d.items.length)return vacio(b,"Todo lo que el CMDB encontró está registrado.");
-    b.innerHTML='<ul class="list">'+d.items.map(function(r){return '<li><span class="ico">'+(TIPO_IC[r.tipo]||IC.box)+'</span><span class="t"><b class="mono" style="font-weight:500">'+esc(r.nombre)+'</b><span>'+esc(TIPO[r.tipo]||r.tipo)+' · detectado '+hace(r.primera_vez)+'</span></span><button class="btn sm" data-reg="'+esc(r.nombre)+'">Registrar</button></li>'}).join("")+'</ul>';
-    b.querySelectorAll("[data-reg]").forEach(function(x){x.addEventListener("click",function(){toast("El alta de activos desde el panel llega en la siguiente fase.")})});
+    var adm=esAdmin();
+    b.innerHTML='<ul class="list">'+d.items.map(function(r,i){return '<li><span class="ico">'+(TIPO_IC[r.tipo]||IC.box)+'</span><span class="t"><b class="mono" style="font-weight:500">'+esc(r.nombre)+'</b><span>'+esc(TIPO[r.tipo]||r.tipo)+(r.region?' · '+esc(r.region):'')+' · detectado '+hace(r.primera_vez)+'</span></span>'+(adm?'<button class="btn sm" data-reg="'+i+'">Registrar</button>':'')+'</li>'}).join("")+'</ul>';
+    b.querySelectorAll("[data-reg]").forEach(function(x){x.addEventListener("click",function(){abrirAltaActivo(d.items[+x.dataset.reg])})});
   },
   corridas:function(b){
     var d=dato("sistema/ejecuciones");if(!d)return falla(b,"sistema/ejecuciones");
